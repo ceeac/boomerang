@@ -23,6 +23,7 @@
 #include <set>
 
 
+
 class Statement;
 
 class Exp;
@@ -31,6 +32,9 @@ class Type;
 using SharedExp = std::shared_ptr<Exp>;
 using SharedRTL = std::shared_ptr<RTL>;
 
+namespace ssl {
+    class SSLParser;
+};
 
 
 /**
@@ -40,7 +44,7 @@ class TableEntry
 {
 public:
     TableEntry();
-    TableEntry(const std::list<QString>& params, const RTL& rtl);
+    TableEntry(const std::list<QString>& instructionParams, const RTL& rtl);
 
 public:
     /**
@@ -52,7 +56,7 @@ public:
      *
      * \returns Zero on success, non-zero on failure.
      */
-    int appendRTL(const std::list<QString>& params, const RTL& rtl);
+    int appendRTL(const std::list<QString>& instructionParams, const RTL& rtl);
 
 public:
     std::list<QString> m_params;
@@ -78,7 +82,7 @@ struct ParamEntry
 public:
     std::list<QString> m_params;          ///< PARAM_VARIANT & PARAM_ASGN only */
     std::list<QString> m_funcParams;      ///< PARAM_LAMBDA - late bound params */
-    Statement          *m_asgn = nullptr; ///< PARAM_ASGN only */
+    std::shared_ptr<class Statement> m_asgn = nullptr; ///< PARAM_ASGN only */
     bool               m_lhs   = false;   ///< True if this param ever appears on the LHS of an expression */
     ParamKind          m_kind  = PARAM_SIMPLE;
     SharedType         m_regType;         ///< Type of r[this], if any (void otherwise)
@@ -99,8 +103,8 @@ protected:
  */
 class RTLInstDict
 {
-    friend class SSLParser;
     friend class NJMCDecoder;
+    friend class ssl::SSLParser;
 
 public:
     RTLInstDict() = default;
@@ -160,7 +164,7 @@ private:
      * \param rtl reference to the RTL to add
      * \returns zero for success, non-zero for failure
      */
-    int insert(const QString& name, std::list<QString>& parameters, const RTL& rtl);
+    int insert(const QString& name, const std::list<QString>& parameters, const RTL& rtl);
 
     /**
      * Transform an RTL to eliminate any uses of post-variables by either
@@ -183,14 +187,6 @@ private:
     void print(QTextStream& os);
 
     /**
-     * Add a new register definition to the dictionary
-     * \param name register's name
-     * \param size - register size in bits
-     * \param flt  - is float register?
-     */
-    void addRegister(const QString& name, int id, int size, bool flt);
-
-    /**
      * Scan the Exp* pointed to by exp; if its top level operator indicates even a partial type, then set
      * the expression's type, and return true
      * \note This version only inspects one expression
@@ -201,16 +197,29 @@ private:
      */
     bool partialType(Exp *exp, Type& ty);
 
+    void fixupParamsSub(const QString& s, std::list<QString>& funcParams, bool& haveCount, int mark);
+
+public:
+    /// An RTL describing the machine's basic fetch-execute cycle
+    SharedRTL fetchExecCycle;
+
     /**
      * Runs after the ssl file is parsed to fix up variant params
      * where the arms are lambdas.
      */
     void fixupParams();
 
-    void fixupParamsSub(const QString& s, std::list<QString>& funcParams, bool& haveCount, int mark);
+    /**
+     * Add a new register definition to the dictionary
+     * \param name register's name
+     * \param size - register size in bits
+     * \param flt  - is float register?
+     */
+    void addRegister(const QString& name, int id, int size, bool flt);
 
-    /// An RTL describing the machine's basic fetch-execute cycle
-    SharedRTL fetchExecCycle;
+
+    /// Parameter (instruction operand, more like addressing mode) details (where given)
+    QMap<QString, ParamEntry> DetParamMap;
 
     /// A map from the symbolic representation of a register (e.g. "%g0") to its index within an array of registers.
     std::map<QString, int, std::less<QString> > RegMap;
@@ -218,16 +227,13 @@ private:
     /// Similar to r_map but stores more info about a register such as its size, its addresss etc (see register.h).
     std::map<int, Register, std::less<int> > DetRegMap;
 
+    /// The maps which summarise the semantics (.ssl) file
+    std::map<QString, SharedExp> FlagFuncs;
 
     /// A set of parameter names, to make sure they are declared (?).
     /// Was map from string to SemTable index
     std::set<QString> ParamSet;
 
-    /// Parameter (instruction operand, more like addressing mode) details (where given)
-    QMap<QString, ParamEntry> DetParamMap;
-
-    /// The maps which summarise the semantics (.ssl) file
-    std::map<QString, SharedExp> FlagFuncs;
     /// Map from ordinary instruction to fast pseudo instruction, for use with -f (fast but not as exact) switch
     std::map<QString, QString> fastMap;
 

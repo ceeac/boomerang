@@ -13,7 +13,7 @@
 #include "boomerang/core/Boomerang.h"
 #include "boomerang/core/Boomerang.h"
 #include "boomerang/db/exp/Location.h"
-#include "boomerang/db/ssl/sslparser.h"
+#include "boomerang/db/ssl/SSLParser.h"
 #include "boomerang/db/statements/Assign.h"
 #include "boomerang/db/exp/Terminal.h"
 #include "boomerang/db/exp/Binary.h"
@@ -23,16 +23,17 @@
 #include "boomerang/util/Log.h"
 
 
+
 TableEntry::TableEntry()
     : m_rtl(Address::INVALID)
 {
 }
 
 
-TableEntry::TableEntry(const std::list<QString>& params, const RTL& rtl)
-    : m_rtl(rtl)
+TableEntry::TableEntry(const std::list<QString>& params, const RTL& r)
+    : m_params(params)
+    , m_rtl(r)
 {
-    std::copy(params.begin(), params.end(), std::back_inserter(m_params));
 }
 
 
@@ -47,7 +48,7 @@ int TableEntry::appendRTL(const std::list<QString>& params, const RTL& rtl)
 }
 
 
-int RTLInstDict::insert(const QString& name, std::list<QString>& params, const RTL& rtl)
+int RTLInstDict::insert(const QString& name, const std::list<QString>& params, const RTL& rtl)
 {
     QString opcode = name.toUpper();
 
@@ -72,24 +73,19 @@ bool RTLInstDict::readSSLFile(const QString& SSLFileName)
     // Clear all state
     reset();
 
-    // Attempt to Parse the SSL file
-    SSLParser theParser(qPrintable(SSLFileName),
-#ifdef DEBUG_SSLPARSER
-                        true
-#else
-                        false
-#endif
-                        );
+    // Attempt to parse the SSL file
+    ssl::SSLParser theParser(*this, SSLFileName);
 
-    if (theParser.theScanner == nullptr) {
-        return false;
-    }
+#ifdef DEBUG_SSLPARSER
+    theParser.setDebug(ssl::SSLParser::ON | ssl::SSLParser::ACTIONCASES);
+#else
+    theParser.setDebug(ssl::SSLParser::OFF);
+#endif
 
     addRegister("%CTI", -1, 1, false);
     addRegister("%NEXT", -1, 32, false);
 
-    theParser.yyparse(*this);
-
+    theParser.parse();
     fixupParams();
 
     if (SETTING(debugDecoder)) {

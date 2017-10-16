@@ -11,7 +11,7 @@
 
 
 #include "boomerang/core/Boomerang.h"
-#include "boomerang/db/ssl/sslparser.h"
+#include "boomerang/db/ssl/SSLParser.ih"
 #include "boomerang/db/statements/Statement.h"
 #include "boomerang/util/Log.h"
 
@@ -45,7 +45,7 @@ void ParserTest::testRead()
 void ParserTest::testExp()
 {
     QString   s("*i32* r0 := 5 + 6");
-    Statement *a = SSLParser::parseExp(qPrintable(s));
+    Statement *a = ssl::SSLParser::parseExp(qPrintable(s));
 
     QVERIFY(a);
     QString     res;
@@ -53,7 +53,7 @@ void ParserTest::testExp()
     a->print(ost);
     QCOMPARE(res, "   0 " + s);
     QString s2 = "*i32* r[0] := 5 + 6";
-    a = SSLParser::parseExp(qPrintable(s2));
+    a = ssl::SSLParser::parseExp(qPrintable(s2));
     QVERIFY(a);
     res.clear();
     a->print(ost);

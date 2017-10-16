@@ -8,12 +8,10 @@
  */
 #pragma endregion License
 
-
-#include "sslparser.h"
+#include "boomerang/db/ssl/SSLParser.ih"
+#include "boomerang/db/ssl/SSLScanner.ih"
 
 #include "boomerang/core/Boomerang.h"
-
-#include "boomerang/db/ssl/sslscanner.h"
 #include "boomerang/db/Table.h"
 #include "boomerang/db/InsNameElem.h"
 
@@ -33,26 +31,16 @@
 
 class SSLScanner;
 
-/**
- * \param in - the input stream
- * \param trace - whether or not to debug
- *
- */
-SSLParser::SSLParser(std::istream& in, bool trace)
-    : sslFile("input")
-    , floatRegister(false)
-{
-    m_fin      = nullptr;
-    theScanner = new SSLScanner(in, trace);
+// definitions for extern variables in sslparser_support.h
+Assign *the_asgn;
+RTLInstDict Dict;
+bool bFloat;
+std::map<QString, int> ConstTable;
+std::map<QString, std::shared_ptr<class Table>> TableDict;
+std::map<QString, std::shared_ptr<class InsNameElem>> indexrefmap;
 
-    if (trace) {
-        yydebug = 1;
-    }
-    else {
-        yydebug = 0;
-    }
-}
 
+namespace ssl {
 
 /**
  * Parses an assignment from a string.
@@ -61,39 +49,40 @@ SSLParser::SSLParser(std::istream& in, bool trace)
  */
 Statement *SSLParser::parseExp(const char *str)
 {
+    RTLInstDict dict;
     std::istringstream ss(str);
-    SSLParser          p(ss, false); // Second arg true for debugging
-    RTLInstDict        d;
-    p.yyparse(d);
-    return p.the_asgn;
+    ssl::SSLParser p(dict, ss);
+
+    p.parse();
+    return the_asgn;
 }
 
 
-SSLParser::~SSLParser()
-{
-    std::map<QString, Table *>::iterator loc;
-
-    if (theScanner != nullptr) {
-        delete theScanner;
-    }
-
-    TableDict.clear();
-    delete m_fin;
-}
+// SSLParser::~SSLParser()
+// {
+//     std::map<QString, Table *>::iterator loc;
+//
+//     if (theScanner != nullptr) {
+//         delete theScanner;
+//     }
+//
+//     TableDict.clear();
+//     delete m_fin;
+// }
 
 
 /// Display an error message if the parser encounters an error.
-void SSLParser::yyerror(const char *msg)
-{
-    LOG_ERROR("%1: %2: %3", sslFile, theScanner->theLine, msg);
-}
+// void SSLParser::yyerror(const char *msg)
+// {
+//     LOG_ERROR("%1: %2: %3", sslFile, theScanner->theLine, msg);
+// }
 
 
 /// \returns the next token
-int SSLParser::yylex()
-{
-    return theScanner->yylex(yylval);
-}
+// int SSLParser::yylex()
+// {
+//     return theScanner->yylex(yylval);
+// }
 
 
 /**
@@ -348,74 +337,27 @@ OPER SSLParser::strToOper(const QString& s)
         break;
     }
 
-    yyerror(qPrintable(QString("Unknown operator %1\n").arg(s)));
+    error(); // qPrintable(QString("Unknown operator %1\n").arg(s)));
     return opWild;
 }
 
 
-OPER strToTerm(const QString& s)
-{
-    static QMap<QString, OPER> mapping =
-    {
-        { "%pc",     opPC     }, { "%afp", opAFP }, { "%agp", opAGP }, { "%CF", opCF },
-        { "%ZF",     opZF     }, { "%OF",  opOF  }, { "%NF",  opNF  }, { "%DF", opDF },{ "%flags", opFlags },
-        { "%fflags", opFflags },
-    };
-
-    if (mapping.contains(s)) {
-        return mapping[s];
-    }
-
-    return (OPER)0;
-}
-
 
 /**
- * Convert a list of actual parameters in the form of a STL list of Exps
- * into one expression (using opList)
- * \note The expressions in the list are not cloned;
- *       they are simply copied to the new opList
+ * Make the successor of the given expression, e.g. given r[2], return succ( r[2] )
+ * (using opSuccessor).
+ * We can't do the successor operation here, because the parameters
+ * are not yet instantiated (still of the form param(rd)).
+ * Actual successor done in Exp::fixSuccessor()
  *
- * \param le  the list of expressions
- * \returns The opList Expression
+ * \note       The given expression should be of the form    r[const]
+ * \note       The parameter expresion is copied (not cloned) in the result
+ * \param      e  The expression to find the successor of
+ * \returns    The modified expression
  */
-SharedExp listExpToExp(std::list<SharedExp> *le)
+SharedExp SSLParser::makeSuccessor(SharedExp e)
 {
-    SharedExp e;
-    SharedExp *cur = &e;
-    SharedExp end  = Terminal::get(opNil); // Terminate the chain
-
-    for (auto& elem : *le) {
-        *cur = Binary::get(opList, elem, end);
-        // cur becomes the address of the address of the second subexpression
-        // In other words, cur becomes a reference to the second subexp ptr
-        // Note that declaring cur as a reference doesn't work (remains a reference to e)
-        cur = &(*cur)->refSubExp2();
-    }
-
-    return e;
-}
-
-
-/**
- * Convert a list of formal parameters in the form of a STL list of strings
- * into one expression (using opList)
- * \param   ls - the list of strings
- * \returns The opList expression
- */
-SharedExp listStrToExp(std::list<QString> *ls)
-{
-    SharedExp e;
-    SharedExp *cur = &e;
-    SharedExp end  = Terminal::get(opNil); // Terminate the chain
-
-    for (auto& l : *ls) {
-        *cur = Binary::get(opList, Location::get(opParam, Const::get(l), nullptr), end);
-        cur  = &(*cur)->refSubExp2();
-    }
-
-    *cur = Terminal::get(opNil); // Terminate the chain
-    return e;
+    return Unary::get(opSuccessor, e);
 }
 
 
@@ -432,7 +374,7 @@ static Ternary srchOp(opOpTable, Terminal::get(opWild), Terminal::get(opWild), T
  * \param   o_rtlist Original rtlist object (before expanding)
  * \param   Dict Ref to the dictionary that will contain the results of the parse
  */
-void SSLParser::expandTables(const std::shared_ptr<InsNameElem>& iname, std::list<QString> *params, SharedRTL o_rtlist, RTLInstDict& Dict)
+void SSLParser::expandTables(const std::shared_ptr<InsNameElem>& iname, const std::list<QString>& params, SharedRTL o_rtlist, RTLInstDict& Dict)
 {
     const int m = iname->getNumInstructions();
     iname->reset();
@@ -489,31 +431,81 @@ void SSLParser::expandTables(const std::shared_ptr<InsNameElem>& iname, std::lis
             }
         }
 
-        if (Dict.insert(name, *params, rtl) != 0) {
-            QString     errmsg;
-            QTextStream o(&errmsg);
-            o << "Pattern " << iname->getInsPattern() << " conflicts with an earlier declaration of " << name << ".\n";
-            yyerror(qPrintable(errmsg));
+        if (Dict.insert(name, params, rtl) != 0) {
+            LOG_ERROR("Pattern '%1' conflicts with an earlier declaration of '%2'",
+                      iname->getInsPattern(), name);
+            error();
         }
     }
 
     indexrefmap.erase(indexrefmap.begin(), indexrefmap.end());
 }
 
+} // end namespace
+
+
+OPER strToTerm(const QString& s)
+{
+    static QMap<QString, OPER> mapping =
+    {
+        { "%pc",     opPC     }, { "%afp", opAFP }, { "%agp", opAGP }, { "%CF", opCF },
+        { "%ZF",     opZF     }, { "%OF",  opOF  }, { "%NF",  opNF  }, { "%DF", opDF },{ "%flags", opFlags },
+        { "%fflags", opFflags },
+    };
+
+    if (mapping.contains(s)) {
+        return mapping[s];
+    }
+
+    return (OPER)0;
+}
+
 
 /**
- * Make the successor of the given expression, e.g. given r[2], return succ( r[2] )
- * (using opSuccessor).
- * We can't do the successor operation here, because the parameters
- * are not yet instantiated (still of the form param(rd)).
- * Actual successor done in Exp::fixSuccessor()
+ * Convert a list of actual parameters in the form of a STL list of Exps
+ * into one expression (using opList)
+ * \note The expressions in the list are not cloned;
+ *       they are simply copied to the new opList
  *
- * \note       The given expression should be of the form    r[const]
- * \note       The parameter expresion is copied (not cloned) in the result
- * \param      e  The expression to find the successor of
- * \returns    The modified expression
+ * \param le  the list of expressions
+ * \returns The opList Expression
  */
-SharedExp SSLParser::makeSuccessor(SharedExp e)
+SharedExp listExpToExp(const std::deque<SharedExp>& le)
 {
-    return Unary::get(opSuccessor, e);
+    SharedExp e;
+    SharedExp *cur = &e;
+    SharedExp end  = Terminal::get(opNil); // Terminate the chain
+
+    for (const auto& elem : le) {
+        *cur = Binary::get(opList, elem, end);
+        // cur becomes the address of the address of the second subexpression
+        // In other words, cur becomes a reference to the second subexp ptr
+        // Note that declaring cur as a reference doesn't work (remains a reference to e)
+        cur = &(*cur)->refSubExp2();
+    }
+
+    return e;
 }
+
+
+/**
+ * Convert a list of formal parameters in the form of a STL list of strings
+ * into one expression (using opList)
+ * \param   ls - the list of strings
+ * \returns The opList expression
+ */
+SharedExp listStrToExp(const std::list<QString>& ls)
+{
+    SharedExp e;
+    SharedExp *cur = &e;
+    SharedExp end  = Terminal::get(opNil); // Terminate the chain
+
+    for (const auto& l : ls) {
+        *cur = Binary::get(opList, Location::get(opParam, Const::get(l), nullptr), end);
+        cur  = &(*cur)->refSubExp2();
+    }
+
+    *cur = Terminal::get(opNil); // Terminate the chain
+    return e;
+}
+

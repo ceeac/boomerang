@@ -18,7 +18,7 @@
 
 
 /// An element of an instruction name
-class InsNameElem
+class InsNameElem : public std::enable_shared_from_this<InsNameElem>
 {
 public:
     InsNameElem(const QString& name);
@@ -34,7 +34,7 @@ public:
     virtual size_t getNumTokens() const;
     virtual QString getInstruction() const;
     virtual QString getInsPattern() const;
-    virtual void getRefMap(std::map<QString, InsNameElem *>& map);
+    virtual void getRefMap(std::map<QString, std::shared_ptr<InsNameElem>>& map);
 
     int getNumInstructions() const;
     void append(std::shared_ptr<InsNameElem> next);
@@ -68,7 +68,7 @@ public:
     virtual size_t getNumTokens()   const override;
     virtual QString getInstruction() const override;
     virtual QString getInsPattern()  const override;
-    virtual void getRefMap(std::map<QString, InsNameElem *>& m) override;
+    virtual void getRefMap(std::map<QString, std::shared_ptr<InsNameElem>>& m) override;
 
     QString getIndex() const;
 

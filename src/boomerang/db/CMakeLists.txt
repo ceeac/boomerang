@@ -7,6 +7,11 @@
 #
 
 
+add_custom_target(parsers ALL flexc++ "${CMAKE_CURRENT_SOURCE_DIR}/ssl/SSLScanner.l" && bisonc++ "${CMAKE_CURRENT_SOURCE_DIR}/ssl/SSLParser.y"
+    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/ssl/SSLScanner.l"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/ssl/"
+)
+
 list(APPEND boomerang-db-sources
     db/BasicBlock
     db/CFG
@@ -61,9 +66,11 @@ list(APPEND boomerang-db-sources
     db/signature/Win32Signature
 
     db/ssl/RTLInstDict
-    db/ssl/sslparser
+    db/ssl/SSLParser
+    db/ssl/SSLParserBase.h
     db/ssl/sslparser_support.cpp
-    db/ssl/sslscanner
+    db/ssl/SSLScanner
+    db/ssl/SSLScannerBase.h
 
     # statement handling
     db/statements/Assign

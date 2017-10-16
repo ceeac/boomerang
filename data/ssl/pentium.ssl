@@ -31,8 +31,7 @@ MAX32POS  := 0x7FFFFFFF;
 MAX32NEG  := 0x80000000;
 
 INTEGER
-[ %eax, %ecx, %edx, %ebx,
-  %esp, %ebp, %esi, %edi ][32] -> 24..31,
+[ %eax, %ecx, %edx, %ebx, %esp, %ebp, %esi, %edi ][32] -> 24..31,
 %ax[16] -> 0 SHARES %eax@[0..15],
 %cx[16] -> 1 SHARES %ecx@[0..15],
 %dx[16] -> 2 SHARES %edx@[0..15],

@@ -98,15 +98,19 @@ SharedExp NJMCDecoder::instantiateNamedParam(char *name, const std::initializer_
     }
 
     // Start with the RHS
-    assert(ent.m_asgn->getKind() == StmtType::Assign);
-    SharedExp result   = static_cast<Assign *>(ent.m_asgn)->getRight()->clone();
+    assert(ent.m_asgn->isAssign());
+    std::shared_ptr<Assign> assign = std::static_pointer_cast<Assign>(ent.m_asgn);
+
+    SharedExp result   = assign->getRight() ? assign->getRight()->clone() : nullptr;
     auto      arg_iter = args.begin();
 
-    for (auto& elem : ent.m_params) {
-        Location  formal(opParam, Const::get(elem), nullptr);
-        SharedExp actual = *arg_iter++;
-        bool      change;
-        result = result->searchReplaceAll(formal, actual, change);
+    if (result) {
+        for (auto& elem : ent.m_params) {
+            Location  formal(opParam, Const::get(elem), nullptr);
+            SharedExp actual = *arg_iter++;
+            bool      change;
+            result = result->searchReplaceAll(formal, actual, change);
+        }
     }
 
     return result;

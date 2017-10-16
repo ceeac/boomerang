@@ -50,7 +50,7 @@ public:
 
     const StringQueue& getRecords() const { return Records; }
 
-private:
+public:
     TABLE_TYPE TableType;
     StringQueue Records;
 };
