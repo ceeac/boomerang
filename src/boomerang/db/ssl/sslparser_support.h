@@ -22,14 +22,3 @@
 #include <memory>
 
 #include <QString>
-
-
-extern class Assign * the_asgn;
-extern bool bFloat;
-extern std::map<QString, int> ConstTable;
-extern std::map<QString, std::shared_ptr<class Table>> TableDict;
-extern std::map<QString, std::shared_ptr<class InsNameElem>> indexrefmap;
-
-extern SharedExp listStrToExp(const std::list<QString>& ls);
-extern SharedExp listExpToExp(const std::deque<SharedExp>& le);
-extern OPER strToTerm(const QString& s);

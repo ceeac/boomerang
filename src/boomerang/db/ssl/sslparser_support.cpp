@@ -31,22 +31,11 @@
 
 class SSLScanner;
 
-// definitions for extern variables in sslparser_support.h
-Assign *the_asgn;
-RTLInstDict Dict;
-bool bFloat;
-std::map<QString, int> ConstTable;
-std::map<QString, std::shared_ptr<class Table>> TableDict;
-std::map<QString, std::shared_ptr<class InsNameElem>> indexrefmap;
-
-
 namespace ssl {
 
-/**
- * Parses an assignment from a string.
- * \param  str - the string
- * \returns an Assignment or nullptr.
- */
+Assign *SSLParser::theAssign = nullptr;
+
+
 Statement *SSLParser::parseExp(const char *str)
 {
     RTLInstDict dict;
@@ -54,46 +43,10 @@ Statement *SSLParser::parseExp(const char *str)
     ssl::SSLParser p(dict, ss);
 
     p.parse();
-    return the_asgn;
+    return theAssign;
 }
 
 
-// SSLParser::~SSLParser()
-// {
-//     std::map<QString, Table *>::iterator loc;
-//
-//     if (theScanner != nullptr) {
-//         delete theScanner;
-//     }
-//
-//     TableDict.clear();
-//     delete m_fin;
-// }
-
-
-/// Display an error message if the parser encounters an error.
-// void SSLParser::yyerror(const char *msg)
-// {
-//     LOG_ERROR("%1: %2: %3", sslFile, theScanner->theLine, msg);
-// }
-
-
-/// \returns the next token
-// int SSLParser::yylex()
-// {
-//     return theScanner->yylex(yylval);
-// }
-
-
-/**
- * Convert a string operator (e.g. "+f") to an OPER (opFPlus)
- * \note    An attempt is made to make this moderately efficient,
- *          else we might have a skip chain of string comparisons
- * \note    This is a member of SSLParser so we can call yyerror
- *          and have line number etc printed out
- * \param   s pointer to the operator C string
- * \returns An OPER, or -1 if not found (enum opWild)
- */
 OPER SSLParser::strToOper(const QString& s)
 {
     static QMap<QString, OPER> opMap {
@@ -337,24 +290,12 @@ OPER SSLParser::strToOper(const QString& s)
         break;
     }
 
-    error(); // qPrintable(QString("Unknown operator %1\n").arg(s)));
+    LOG_ERROR("Unknown operator %1", s);
+    error();
     return opWild;
 }
 
 
-
-/**
- * Make the successor of the given expression, e.g. given r[2], return succ( r[2] )
- * (using opSuccessor).
- * We can't do the successor operation here, because the parameters
- * are not yet instantiated (still of the form param(rd)).
- * Actual successor done in Exp::fixSuccessor()
- *
- * \note       The given expression should be of the form    r[const]
- * \note       The parameter expresion is copied (not cloned) in the result
- * \param      e  The expression to find the successor of
- * \returns    The modified expression
- */
 SharedExp SSLParser::makeSuccessor(SharedExp e)
 {
     return Unary::get(opSuccessor, e);
@@ -365,15 +306,6 @@ static Binary  srchExpr(opExpTable, Terminal::get(opWild), Terminal::get(opWild)
 static Ternary srchOp(opOpTable, Terminal::get(opWild), Terminal::get(opWild), Terminal::get(opWild));
 
 
-/**
- * Expand tables in an RTL and save to dictionary
- * \note    This may generate many entries
- *
- * \param   iname Parser object representing the instruction name
- * \param   params Parser object representing the instruction params
- * \param   o_rtlist Original rtlist object (before expanding)
- * \param   Dict Ref to the dictionary that will contain the results of the parse
- */
 void SSLParser::expandTables(const std::shared_ptr<InsNameElem>& iname, const std::list<QString>& params, SharedRTL o_rtlist, RTLInstDict& Dict)
 {
     const int m = iname->getNumInstructions();
@@ -395,7 +327,7 @@ void SSLParser::expandTables(const std::shared_ptr<InsNameElem>& iname, const st
                 for (SharedExp e : le) {
                     QString   tbl  = (e)->access<Const, 1>()->getStr();
                     QString   idx  = (e)->access<Const, 2>()->getStr();
-                    SharedExp repl = ((ExprTable *)TableDict[tbl].get())->expressions[indexrefmap[idx]->getValue()];
+                    SharedExp repl = ((ExprTable *)m_tableDict[tbl].get())->expressions[m_indexRefMap[idx]->getValue()];
                     s->searchAndReplace(*e, repl);
                 }
             }
@@ -425,7 +357,7 @@ void SSLParser::expandTables(const std::shared_ptr<InsNameElem>& iname, const st
                 SharedExp e2 = b->getSubExp2(); // This should be an opList too
                 assert(b->getOper() == opList);
                 e2 = e2->getSubExp1();
-                QString   ops  = ((OpTable *)TableDict[tbl].get())->getRecords()[indexrefmap[idx]->getValue()];
+                QString   ops  = ((OpTable *)m_tableDict[tbl].get())->Records[m_indexRefMap[idx]->getValue()];
                 SharedExp repl = Binary::get(strToOper(ops), e1->clone(), e2->clone()); // FIXME!
                 s->searchAndReplace(*res, repl);
             }
@@ -438,18 +370,23 @@ void SSLParser::expandTables(const std::shared_ptr<InsNameElem>& iname, const st
         }
     }
 
-    indexrefmap.erase(indexrefmap.begin(), indexrefmap.end());
+    m_indexRefMap.clear();
 }
 
-} // end namespace
 
-
-OPER strToTerm(const QString& s)
+OPER SSLParser::strToTerm(const QString& s)
 {
     static QMap<QString, OPER> mapping =
     {
-        { "%pc",     opPC     }, { "%afp", opAFP }, { "%agp", opAGP }, { "%CF", opCF },
-        { "%ZF",     opZF     }, { "%OF",  opOF  }, { "%NF",  opNF  }, { "%DF", opDF },{ "%flags", opFlags },
+        { "%pc",  opPC  },
+        { "%afp", opAFP },
+        { "%agp", opAGP },
+        { "%CF",  opCF  },
+        { "%ZF",  opZF  },
+        { "%OF",  opOF  },
+        { "%NF",  opNF  },
+        { "%DF",  opDF  },
+        { "%flags",  opFlags  },
         { "%fflags", opFflags },
     };
 
@@ -461,16 +398,7 @@ OPER strToTerm(const QString& s)
 }
 
 
-/**
- * Convert a list of actual parameters in the form of a STL list of Exps
- * into one expression (using opList)
- * \note The expressions in the list are not cloned;
- *       they are simply copied to the new opList
- *
- * \param le  the list of expressions
- * \returns The opList Expression
- */
-SharedExp listExpToExp(const std::deque<SharedExp>& le)
+SharedExp SSLParser::listExpToExp(const std::deque<SharedExp>& le)
 {
     SharedExp e;
     SharedExp *cur = &e;
@@ -488,13 +416,7 @@ SharedExp listExpToExp(const std::deque<SharedExp>& le)
 }
 
 
-/**
- * Convert a list of formal parameters in the form of a STL list of strings
- * into one expression (using opList)
- * \param   ls - the list of strings
- * \returns The opList expression
- */
-SharedExp listStrToExp(const std::list<QString>& ls)
+SharedExp SSLParser::listStrToExp(const std::list<QString>& ls)
 {
     SharedExp e;
     SharedExp *cur = &e;
@@ -509,3 +431,4 @@ SharedExp listStrToExp(const std::list<QString>& ls)
     return e;
 }
 
+}

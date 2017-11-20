@@ -114,11 +114,11 @@
 
 spec_or_assign:
         assign_regtransfer {
-            the_asgn = dynamic_cast<Assign *>($1);
-            assert(the_asgn);
+            theAssign = dynamic_cast<Assign *>($1);
+            assert(theAssign != nullptr);
         }
     |   exp {
-            the_asgn = new Assign(Terminal::get(opNil), $1);
+            theAssign = new Assign(Terminal::get(opNil), $1);
         }
     |   specification
     ;
@@ -132,7 +132,7 @@ parts:
         const_def       ///< Name := value
     |   instr
     |   KW_FETCHEXEC rt_list {
-            Dict.fetchExecCycle = $2;
+            m_dict.fetchExecCycle = $2;
         }
     |   table_assign
 
@@ -150,26 +150,26 @@ parts:
     |   flag_fnc
 
         // Addressing modes (or instruction operands) (optional)
-    |   KW_OPERAND operandlist { Dict.fixupParams(); }
+    |   KW_OPERAND operandlist { m_dict.fixupParams(); }
     ;
 
 const_def:
         IDENTIFIER ASSIGN const_exp {
-            if (ConstTable.find($1) != ConstTable.end()) {
+            if (m_constTable.find($1) != m_constTable.end()) {
                 error();
             }
-            ConstTable[QString($1)] = $3;
+            m_constTable[QString($1)] = $3;
         }
     ;
 
 const_exp: // TODO: More operators
         NUM { $$ = $1; }
     |   IDENTIFIER {
-            if (ConstTable.find($1) == ConstTable.end()) {
+            if (m_constTable.find($1) == m_constTable.end()) {
                 LOG_ERROR("Undefined constant '%1' encountered.", $1);
                 error();
             }
-            $$ = ConstTable[QString($1)];
+            $$ = m_constTable[QString($1)];
         }
     |   '(' const_exp ')' { $$ = $2; }
     |   const_exp ARITH_OP const_exp {
@@ -198,8 +198,8 @@ operand:
         //$1    $2    $3      $4        $5
         param ASSIGN '{' list_parameter '}' {
             // Note: the below copies the list of strings!
-                Dict.DetParamMap[$1].m_params = $4;
-                Dict.DetParamMap[$1].m_kind = PARAM_VARIANT;
+                m_dict.DetParamMap[$1].m_params = $4;
+                m_dict.DetParamMap[$1].m_kind = PARAM_VARIANT;
             }
 
         // In the documentation, these are the second and third kinds
@@ -210,7 +210,7 @@ operand:
         // Example: indexA    rs1, rs2 *i32* r[rs1] + r[rs2]
         //$1       $2             $3           $4      $5
     |   param list_parameter func_parameter assigntype exp {
-            ParamEntry &param = Dict.DetParamMap[$1];
+            ParamEntry &param = m_dict.DetParamMap[$1];
             // Note: The below 2 copy lists of strings
             param.m_params = $2;
             param.m_funcParams = $3;
@@ -229,8 +229,8 @@ func_parameter:
     ;
 
 reglist:
-        KW_INTEGER  { bFloat = false; } a_reglists
-    |   KW_FLOAT   { bFloat = true;  } a_reglists
+        KW_INTEGER { m_floatRegister = false; } a_reglists
+    |   KW_FLOAT   { m_floatRegister = true;  } a_reglists
     ;
 
 a_reglists:
@@ -240,43 +240,43 @@ a_reglists:
 
 a_reglist:
         REG_ID INDEX NUM {
-            if (Dict.RegMap.find($1) != Dict.RegMap.end()) {
+            if (m_dict.RegMap.find($1) != m_dict.RegMap.end()) {
                 error();
             }
-            Dict.RegMap[$1] = $3;
+            m_dict.RegMap[$1] = $3;
         }
     |   REG_ID '[' NUM ']' INDEX NUM {
-            if (Dict.RegMap.find($1) != Dict.RegMap.end()) {
+            if (m_dict.RegMap.find($1) != m_dict.RegMap.end()) {
                 error();
             }
-            Dict.addRegister( $1, $6, $3, bFloat);
+            m_dict.addRegister( $1, $6, $3, m_floatRegister);
         }
     |   REG_ID '[' NUM ']' INDEX NUM KW_COVERS REG_ID TO REG_ID {
-            if (Dict.RegMap.find($1) != Dict.RegMap.end()) {
+            if (m_dict.RegMap.find($1) != m_dict.RegMap.end()) {
                 error();
             }
 
-            Dict.RegMap[$1] = $6;
+            m_dict.RegMap[$1] = $6;
             // Now for detailed Reg information
-            if (Dict.DetRegMap.find($6) != Dict.DetRegMap.end()) {
+            if (m_dict.DetRegMap.find($6) != m_dict.DetRegMap.end()) {
                 error();
             }
 
-            Dict.DetRegMap[$6].setName($1);
-            Dict.DetRegMap[$6].setSize($3);
+            m_dict.DetRegMap[$6].setName($1);
+            m_dict.DetRegMap[$6].setSize($3);
 
             // check range is legitimate for size. 8,10
-            if ((Dict.RegMap.find($8) == Dict.RegMap.end()) || (Dict.RegMap.find($10) == Dict.RegMap.end())) {
+            if ((m_dict.RegMap.find($8) == m_dict.RegMap.end()) || (m_dict.RegMap.find($10) == m_dict.RegMap.end())) {
                 error();
             }
             else {
-                int bitsize = Dict.DetRegMap[Dict.RegMap[$10]].getSize();
-                for (int i = Dict.RegMap[$8]; i != Dict.RegMap[$10]; i++) {
-                    if (Dict.DetRegMap.find(i) == Dict.DetRegMap.end()) {
+                int bitsize = m_dict.DetRegMap[m_dict.RegMap[$10]].getSize();
+                for (int i = m_dict.RegMap[$8]; i != m_dict.RegMap[$10]; i++) {
+                    if (m_dict.DetRegMap.find(i) == m_dict.DetRegMap.end()) {
                         error();
                         break;
                     }
-                    bitsize += Dict.DetRegMap[i].getSize();
+                    bitsize += m_dict.DetRegMap[i].getSize();
                     if (bitsize > $3) {
                         error();
                         break;
@@ -288,32 +288,32 @@ a_reglist:
                     // TODO copy information
                 }
             }
-            Dict.DetRegMap[$6].setMappedIndex(Dict.RegMap[$8]);
-            Dict.DetRegMap[$6].setMappedOffset(0);
-            Dict.DetRegMap[$6].setIsFloat(bFloat);
+            m_dict.DetRegMap[$6].setMappedIndex(m_dict.RegMap[$8]);
+            m_dict.DetRegMap[$6].setMappedOffset(0);
+            m_dict.DetRegMap[$6].setIsFloat(m_floatRegister);
         }
     |   REG_ID '[' NUM ']' INDEX NUM KW_SHARES REG_ID AT '[' NUM TO NUM ']' {
-            if (Dict.RegMap.find($1) != Dict.RegMap.end()) {
+            if (m_dict.RegMap.find($1) != m_dict.RegMap.end()) {
                 error();
             }
 
-            Dict.RegMap[$1] = $6;
+            m_dict.RegMap[$1] = $6;
 
             // Now for detailed Reg information
-            if (Dict.DetRegMap.find($6) != Dict.DetRegMap.end()) {
+            if (m_dict.DetRegMap.find($6) != m_dict.DetRegMap.end()) {
                 error();
             }
 
-            Dict.DetRegMap[$6].setName($1);
-            Dict.DetRegMap[$6].setSize($3);
+            m_dict.DetRegMap[$6].setName($1);
+            m_dict.DetRegMap[$6].setSize($3);
 
             // Do checks
             if ($3 != ($13 - $11) + 1) {
                 error();
             }
 
-            if (Dict.RegMap.find($8) != Dict.RegMap.end()) {
-                if ($13 >= Dict.DetRegMap[Dict.RegMap[$8]].getSize()) {
+            if (m_dict.RegMap.find($8) != m_dict.RegMap.end()) {
+                if ($13 >= m_dict.DetRegMap[m_dict.RegMap[$8]].getSize()) {
                     error();
                 }
             }
@@ -321,9 +321,9 @@ a_reglist:
                 error();
             }
 
-            Dict.DetRegMap[$6].setMappedIndex(Dict.RegMap[$8]);
-            Dict.DetRegMap[$6].setMappedOffset($11);
-            Dict.DetRegMap[$6].setIsFloat(bFloat);
+            m_dict.DetRegMap[$6].setMappedIndex(m_dict.RegMap[$8]);
+            m_dict.DetRegMap[$6].setMappedOffset($11);
+            m_dict.DetRegMap[$6].setIsFloat(m_floatRegister);
         }
     |   '[' reg_table ']' '[' NUM ']' INDEX NUM TO NUM {
             if ((int)($2.size()) != ($10 - $8 + 1)) {
@@ -332,20 +332,20 @@ a_reglist:
             else {
                 std::list<QString>::iterator loc = $2.begin();
                 for (int x = $8; x <= $10; x++, loc++) {
-                    if (Dict.RegMap.find(*loc) != Dict.RegMap.end()) {
+                    if (m_dict.RegMap.find(*loc) != m_dict.RegMap.end()) {
                         error();
                     }
-                    Dict.addRegister(*loc, x, $5, bFloat);
+                    m_dict.addRegister(*loc, x, $5, m_floatRegister);
                 }
             }
         }
     |   '[' reg_table ']' '[' NUM ']' INDEX NUM {
             std::list<QString>::iterator loc = $2.begin();
             for (; loc != $2.end(); loc++) {
-                if (Dict.RegMap.find(*loc) != Dict.RegMap.end()) {
+                if (m_dict.RegMap.find(*loc) != m_dict.RegMap.end()) {
                     error();
                 }
-                Dict.addRegister(*loc, $8, $5, bFloat);
+                m_dict.addRegister(*loc, $8, $5, m_floatRegister);
             }
         }
     ;
@@ -366,14 +366,14 @@ flag_fnc:
         // $1           $2       $3  $4    $5    $6
         NAME_CALL list_parameter ')' '{' rt_list '}' {
             // Note: $2 is a list of strings
-            Dict.FlagFuncs[$1] = std::make_shared<FlagDef>(listStrToExp($2), $5);
+            m_dict.FlagFuncs[$1] = std::make_shared<FlagDef>(listStrToExp($2), $5);
         }
     ;
 
 table_assign:
         IDENTIFIER ASSIGN table_expr {
             const QString name($1);
-            TableDict[name] = $3;
+            m_tableDict[name] = $3;
         }
     ;
 
@@ -442,9 +442,9 @@ name_expand:
         }
     |   '$' IDENTIFIER {
             // expand $2 from table of names
-            if (TableDict.find($2) != TableDict.end()) {
-                if (TableDict[$2]->getType() == NAMETABLE)
-                    $$(TableDict[$2]->Records);
+            if (m_tableDict.find($2) != m_tableDict.end()) {
+                if (m_tableDict[$2]->getType() == NAMETABLE)
+                    $$(m_tableDict[$2]->Records);
                 else {
                     error();
                 }
@@ -456,9 +456,9 @@ name_expand:
     |   IDENTIFIER {
             // try and expand $1 from table of names.
             // if fail, expand using '"' NAME '"' rule
-            if (TableDict.find($1) != TableDict.end()) {
-                if (TableDict[$1]->getType() == NAMETABLE) {
-                    $$(TableDict[$1]->Records);
+            if (m_tableDict.find($1) != m_tableDict.end()) {
+                if (m_tableDict[$1]->getType() == NAMETABLE) {
+                    $$(m_tableDict[$1]->Records);
                 }
                 else {
                     error();
@@ -516,12 +516,12 @@ exprstr_array:
 instr:
         //  $1
         instr_name {
-            $1->getRefMap(indexrefmap);
+            $1->getRefMap(m_indexRefMap);
         }
         //   $3           $4
         list_parameter rt_list {
             // This function expands the tables and saves the expanded RTLs to the dictionary
-            expandTables($1, $3, $4, Dict);
+            expandTables($1, $3, $4, m_dict);
         }
     ;
 
@@ -557,50 +557,50 @@ name_contract:
             $$(std::make_shared<InsOptionElem>($2));
         }
     |   NAME_LOOKUP NUM ']' {
-            if (TableDict.find($1) == TableDict.end()) {
+            if (m_tableDict.find($1) == m_tableDict.end()) {
                 LOG_ERROR("Table '%1' has not been declared.", $1);
                 error();
             }
-            else if (($2 < 0) || ($2 >= (int)TableDict[$1]->Records.size())) {
+            else if (($2 < 0) || ($2 >= (int)m_tableDict[$1]->Records.size())) {
                 LOG_ERROR("Can't get element %1 of table %2.", $2, $1);
                 error();
             }
             else {
-                $$(std::make_shared<InsNameElem>(TableDict[$1]->Records[$2]));
+                $$(std::make_shared<InsNameElem>(m_tableDict[$1]->Records[$2]));
             }
         }
 
             // Example: ARITH[IDX]    where ARITH := { "ADD", "SUB", ...};
     |   NAME_LOOKUP IDENTIFIER ']' {
-            if (TableDict.find($1) == TableDict.end()) {
+            if (m_tableDict.find($1) == m_tableDict.end()) {
                 LOG_ERROR("Table '%1' has not been declared.", $1);
                 error();
             }
             else {
-                $$(std::make_shared<InsListElem>($1, TableDict[$1], $2));
+                $$(std::make_shared<InsListElem>($1, m_tableDict[$1], $2));
             }
         }
 
     |   '$' NAME_LOOKUP NUM ']' {
-            if (TableDict.find($2) == TableDict.end()) {
+            if (m_tableDict.find($2) == m_tableDict.end()) {
                 LOG_ERROR("Table %1 has not been declared.", $2);
                 error();
             }
-            else if (($3 < 0) || ($3 >= (int)TableDict[$2]->Records.size())) {
+            else if (($3 < 0) || ($3 >= (int)m_tableDict[$2]->Records.size())) {
                 LOG_ERROR("Can't get element %1 of table '%2'.", $3, $2);
                 error();
             }
             else {
-                $$(std::make_shared<InsNameElem>(TableDict[$2]->Records[$3]));
+                $$(std::make_shared<InsNameElem>(m_tableDict[$2]->Records[$3]));
             }
         }
     |   '$' NAME_LOOKUP IDENTIFIER ']' {
-            if (TableDict.find($2) == TableDict.end()) {
+            if (m_tableDict.find($2) == m_tableDict.end()) {
                 LOG_ERROR("Table '%1' has not been declared.", $2);
                 error();
             }
             else {
-                $$(std::make_shared<InsListElem>($2, TableDict[$2], $3));
+                $$(std::make_shared<InsListElem>($2, m_tableDict[$2], $3));
             }
         }
     |   '"' IDENTIFIER '"' {
@@ -632,10 +632,10 @@ regtransfer:
         // Example: ADDFLAGS(r[tmp], reg_or_imm, r[rd])
         // $1              $2          $3
     |   NAME_CALL list_actualparameter ')' {
-            if (Dict.FlagFuncs.find($1) != Dict.FlagFuncs.end()) {
+            if (m_dict.FlagFuncs.find($1) != m_dict.FlagFuncs.end()) {
                 // Note: SETFFLAGS assigns to the floating point flags. All others to the integer flags
-                const bool bFloat = (QString($1) == "SETFFLAGS");
-                const OPER op = bFloat ? opFflags : opFlags;
+                const bool floatFlags = (QString($1) == "SETFFLAGS");
+                const OPER op = floatFlags ? opFflags : opFlags;
 
                 $$(new Assign(Terminal::get(op),
                         Binary::get(opFlagCall, Const::get($1), listExpToExp($2))));
@@ -656,14 +656,14 @@ regtransfer:
 flag_list:
         flag_list ',' REG_ID {
             // Not sure why the below is commented out (MVE)
-//            Location* pFlag = Location::regOf(Dict.RegMap[$3]);
+//            Location* pFlag = Location::regOf(m_dict.RegMap[$3]);
 //            $1->push_back(pFlag);
 //            $$ = $1;
             $$ = 0;
         }
     |   REG_ID {
 //            std::list<Exp*>* tmp = new std::list<Exp*>;
-//            Unary* pFlag = new Unary(opIdRegOf, Dict.RegMap[$1]);
+//            Unary* pFlag = new Unary(opIdRegOf, m_dict.RegMap[$1]);
 //            tmp->push_back(pFlag);
 //            $$ = tmp;
             $$ = 0;
@@ -687,7 +687,7 @@ list_parameter:
 param:
         IDENTIFIER {
             // MVE: Likely wrong. Likely supposed to be OPERAND params only
-            Dict.ParamSet.insert($1);
+            m_dict.ParamSet.insert($1);
             $$($1);
         }
     ;
@@ -762,27 +762,27 @@ exp_term:
         // Example: *Use* of COND[idx]
         //  $1       $2
     |   NAME_LOOKUP IDENTIFIER ']' {
-            if (indexrefmap.find($2) == indexrefmap.end()) {
+            if (m_indexRefMap.find($2) == m_indexRefMap.end()) {
                 LOG_ERROR("Index '%1' not declared for use.", $2);
                 error();
             }
-            else if (TableDict.find($1) == TableDict.end()) {
+            else if (m_tableDict.find($1) == m_tableDict.end()) {
                 LOG_ERROR("Table '%1 not declared for use.", $1);
                 error();
             }
-            else if (TableDict[$1]->getType() != EXPRTABLE) {
+            else if (m_tableDict[$1]->getType() != EXPRTABLE) {
                 LOG_ERROR("Table %1 is not an expression table "
                             "but appears to be used as one.", $1);
                 error();
             }
             else  {
-                auto exprTable = std::dynamic_pointer_cast<ExprTable>(TableDict[$1]);
+                auto exprTable = std::dynamic_pointer_cast<ExprTable>(m_tableDict[$1]);
                 assert(exprTable != nullptr);
 
-                if (exprTable->expressions.size() < indexrefmap[$2]->getNumTokens()) {
+                if (exprTable->expressions.size() < m_indexRefMap[$2]->getNumTokens()) {
                     LOG_ERROR("Table '%1' (size %2) is too small to use '%3' (size %4) as an index",
                         ($1), exprTable->expressions.size(),
-                        ($2), indexrefmap[$2]->getNumTokens());
+                        ($2), m_indexRefMap[$2]->getNumTokens());
                     error();
                 }
             }
@@ -794,9 +794,9 @@ exp_term:
         // $1 is the "function" name, and $2 is a list of Exp* for the actual params.
         // I believe only PA/RISC uses these so far.
     |   NAME_CALL list_actualparameter ')' {
-            if (Dict.ParamSet.find($1) != Dict.ParamSet.end() ) {
-                if (Dict.DetParamMap.find($1) != Dict.DetParamMap.end()) {
-                    ParamEntry& param = Dict.DetParamMap[$1];
+            if (m_dict.ParamSet.find($1) != m_dict.ParamSet.end() ) {
+                if (m_dict.DetParamMap.find($1) != m_dict.DetParamMap.end()) {
+                    ParamEntry& param = m_dict.DetParamMap[$1];
                     if ($2.size() != param.m_funcParams.size() ) {
                         error();
                     }
@@ -852,16 +852,16 @@ exp:
         // Example: OP1[IDX] where OP1 := {     "&",  "|", "^", ...};
         //$1     $2      $3        $4   $5
     |   exp NAME_LOOKUP IDENTIFIER ']' exp_term %prec LOOKUP_RDC {
-            if (indexrefmap.find($3) == indexrefmap.end()) {
+            if (m_indexRefMap.find($3) == m_indexRefMap.end()) {
                 error();
             }
-            else if (TableDict.find($2) == TableDict.end()) {
+            else if (m_tableDict.find($2) == m_tableDict.end()) {
                 error();
             }
-            else if (TableDict[$2]->getType() != OPTABLE) {
+            else if (m_tableDict[$2]->getType() != OPTABLE) {
                 error();
             }
-            else if (TableDict[$2]->Records.size() < indexrefmap[$3]->getNumTokens()) {
+            else if (m_tableDict[$2]->Records.size() < m_indexRefMap[$3]->getNumTokens()) {
                 error();
             }
 
@@ -882,8 +882,8 @@ location:
         // (machine specific feature) representing that register.
         REG_ID {
             const bool isFlag = QString($1).contains("flags");
-            std::map<QString, int>::const_iterator it = Dict.RegMap.find($1);
-            if (it == Dict.RegMap.end() && !isFlag) {
+            std::map<QString, int>::const_iterator it = m_dict.RegMap.find($1);
+            if (it == m_dict.RegMap.end() && !isFlag) {
                 error();
             }
             else if (isFlag || it->second == -1) {
@@ -919,12 +919,12 @@ location:
     |   IDENTIFIER {
             // This is a mixture of the param: PARM {} match and the value_op: NAME {} match
             SharedExp s;
-            std::set<QString>::iterator it = Dict.ParamSet.find($1);
-            if (it != Dict.ParamSet.end()) {
+            std::set<QString>::iterator it = m_dict.ParamSet.find($1);
+            if (it != m_dict.ParamSet.end()) {
                 s = Location::get(opParam, Const::get($1), NULL);
             }
-            else if (ConstTable.find($1) != ConstTable.end()) {
-                s = Const::get(ConstTable[$1]); // TODO ???
+            else if (m_constTable.find($1) != m_constTable.end()) {
+                s = Const::get(m_constTable[$1]); // TODO ???
             }
             else {
                 error();
@@ -959,10 +959,10 @@ cast:
 
 endianness:
         KW_ENDIANNESS KW_BIG {
-            Dict.m_bigEndian = Endian::Big;
+            m_dict.m_bigEndian = Endian::Big;
         }
     |   KW_ENDIANNESS KW_LITTLE {
-            Dict.m_bigEndian = Endian::Little;
+            m_dict.m_bigEndian = Endian::Little;
         }
     ;
 
@@ -1010,6 +1010,6 @@ fastentries:
 
 fastentry:
         IDENTIFIER INDEX IDENTIFIER {
-            Dict.fastMap[QString($1)] = QString($3);
+            m_dict.fastMap[QString($1)] = QString($3);
         }
     ;
