@@ -31,40 +31,44 @@
 %%
 
 "INTEGER"       |
-"integer"       { return ssl::SSLParser::TOK_INTEGER; }
+"integer"       { return ssl::SSLParser::KW_INTEGER; }
 "FLOAT"         |
-"float"         { return ssl::SSLParser::TOK_FLOAT; }
-"OPERAND"       { return ssl::SSLParser::OPERAND; }
+"float"         { return ssl::SSLParser::KW_FLOAT; }
+"OPERAND"       { return ssl::SSLParser::KW_OPERAND; }
 "ENDIANNESS"    |
 "endianness"    {
-                    *d_val = QString(matched().c_str());
-                    return ssl::SSLParser::ENDIANNESS;
-                }
+        *d_val = QString(matched().c_str());
+        return ssl::SSLParser::KW_ENDIANNESS;
+    }
 "BIG"           |
 "big"           {
-                    *d_val = QString(matched().c_str());
-                    return ssl::SSLParser::BIG;
-                }
+        *d_val = QString(matched().c_str());
+        return ssl::SSLParser::KW_BIG;
+    }
 "LITTLE"        |
 "little"        {
-                    *d_val = QString(matched().c_str());
-                    return ssl::SSLParser::LITTLE;
-                }
-"COVERS"        { return ssl::SSLParser::COVERS; }
-"SHARES"        { return ssl::SSLParser::SHARES; }
-"FAST"          { return ssl::SSLParser::FAST; }
-"FETCHEXEC"     { return ssl::SSLParser::FETCHEXEC; }
+        *d_val = QString(matched().c_str());
+        return ssl::SSLParser::KW_LITTLE;
+    }
+"COVERS"        { return ssl::SSLParser::KW_COVERS; }
+"SHARES"        { return ssl::SSLParser::KW_SHARES; }
+"FAST"          { return ssl::SSLParser::KW_FAST; }
+"FETCHEXEC"     { return ssl::SSLParser::KW_FETCHEXEC; }
+
+"FPOP"      {    return ssl::SSLParser::KW_FPOP; }
+"FPUSH"     {    return ssl::SSLParser::KW_FPUSH; }
+
 
 "*"[a-z]?[0-9]*"*" {
         *d_val = QString(matched().c_str());
         return ssl::SSLParser::ASSIGNTYPE;
     }
 
-"or"            |
+"or"    |
 "and"   {
-            *d_val = QString(matched().c_str());
-            return ssl::SSLParser::LOG_OP;
-        }
+        *d_val = QString(matched().c_str());
+        return ssl::SSLParser::LOG_OP;
+    }
 
 "="     |
 "~="    |
@@ -76,9 +80,9 @@
 ">u"    |
 "<=u"   |
 ">=u"   {
-            *d_val = QString(matched().c_str());
-            return ssl::SSLParser::COND_OP;
-        }
+        *d_val = QString(matched().c_str());
+        return ssl::SSLParser::COND_OP;
+    }
 
 "rlc"   |
 "rrc"   |
@@ -90,10 +94,9 @@
 "|"     |
 "&"     |
 "^"     {
-            *d_val = QString(matched().c_str());
-            return ssl::SSLParser::BIT_OP;
-
-        }
+        *d_val = QString(matched().c_str());
+        return ssl::SSLParser::BIT_OP;
+    }
 
 "%"     |
 "*"     |
@@ -103,9 +106,9 @@
 "%!"    |
 "+"     |
 "-"     {
-            *d_val = QString(matched().c_str());
-            return ssl::SSLParser::ARITH_OP;
-        }
+        *d_val = QString(matched().c_str());
+        return ssl::SSLParser::ARITH_OP;
+    }
 
 "*f"    |
 "*fd"   |
@@ -122,16 +125,16 @@
 "-fd"   |
 "-fq"   |
 "pow"   {
-            *d_val = QString(matched().c_str());
-            return ssl::SSLParser::FARITH_OP;
-        }
+        *d_val = QString(matched().c_str());
+        return ssl::SSLParser::FARITH_OP;
+    }
 
 "~"     { return ssl::SSLParser::NOT;  }
 "L~"    { return ssl::SSLParser::LNOT; }
 "~f"    { return ssl::SSLParser::FNEG; }
 "=>"    { return ssl::SSLParser::THEN; }
 "->"    { return ssl::SSLParser::INDEX; }
-":="    { return ssl::SSLParser::DEFINE; }
+":="    { return ssl::SSLParser::ASSIGN; }
 
 ".."    { return ssl::SSLParser::TO;    }
 ":"     { return ssl::SSLParser::COLON; }
@@ -147,49 +150,43 @@
 "truncs("   |
 "zfill("    |
 "sgnex("    {
-                // chop off trailing paren
-                *d_val = QString(matched().c_str()).left(matched().length()-1);
-                return ssl::SSLParser::CONV_FUNC;
-            }
+        // chop off trailing paren
+        *d_val = QString(matched().c_str()).left(matched().length()-1);
+        return ssl::SSLParser::CONV_FUNC;
+    }
 "ftrunc("   {
-                // chop off trailing paren
-                *d_val = QString(matched().c_str()).left(matched().length()-1);
-                return ssl::SSLParser::TRUNC_FUNC;
-            }
+        // chop off trailing paren
+        *d_val = QString(matched().c_str()).left(matched().length()-1);
+        return ssl::SSLParser::TRUNC_FUNC;
+    }
 "fabs("     {
-                // chop off trailing paren
-                *d_val = QString(matched().c_str()).left(matched().length()-1);
-                return ssl::SSLParser::FABS_FUNC;
-            }
+        // chop off trailing paren
+        *d_val = QString(matched().c_str()).left(matched().length()-1);
+        return ssl::SSLParser::FABS_FUNC;
+    }
 "defineflags("      |
-"undefineflags("    {
-                        return ssl::SSLParser::FLAGMACRO;
-                    }
-"FPOP"      {    return ssl::SSLParser::FPOP; }
-"FPUSH"     {    return ssl::SSLParser::FPUSH; }
+"undefineflags("    { return ssl::SSLParser::FLAGMACRO; }
 
-"sin(" |
-"cos(" |
-"tan(" |
-"arctan(" |
-"log2(" |
-"loge(" |
-"log10(" |
-"execute("  |
+"sin("     |
+"cos("     |
+"tan("     |
+"arctan("  |
+"log2("    |
+"loge("    |
+"log10("   |
+"execute(" |
 "sqrt(" {
-                // chop off trailing paren
-                *d_val = QString(matched().c_str()).left(matched().length()-1);
-                return ssl::SSLParser::TRANSCEND;
-            }
+        // chop off trailing paren
+        *d_val = QString(matched().c_str()).left(matched().length()-1);
+        return ssl::SSLParser::TRANSCEND;
+    }
 
-"succ("     {
-                return ssl::SSLParser::SUCCESSOR;
-            }
+"succ("     { return ssl::SSLParser::SUCCESSOR; }
 
 "tmp"[a-zA-Z0-9_]* {
-                *d_val = QString(matched().c_str());
-                return ssl::SSLParser::TEMP;
-            }
+        *d_val = QString(matched().c_str());
+        return ssl::SSLParser::TEMP;
+    }
 
 "r["        {   return ssl::SSLParser::REG_IDX; }
 "r"[0-9]*   {
@@ -198,24 +195,25 @@
     }
 "m["        {    return ssl::SSLParser::MEM_IDX; }
 "_"         {    return matched()[0];    }
-"%"[A-Za-z][A-Za-z0-9]* {
-                *d_val = QString(matched().c_str());
-                return ssl::SSLParser::REG_ID;
-            }
-_?[A-Za-z][A-Za-z0-9_]*"(" {
-                // chop off trailing paren
-                *d_val = QString(matched().c_str()).left(matched().length()-1);
-                return ssl::SSLParser::NAME_CALL;
-            }
-_?[A-Za-z][A-Za-z0-9_]*"[" {
-                // chop off trailing bracket
-                *d_val = QString(matched().c_str()).left(matched().length()-1);
-                return ssl::SSLParser::NAME_LOOKUP;
-            }
+
 _?[A-Za-z][A-Za-z0-9_]* {
-                *d_val = QString(matched().c_str());
-                return ssl::SSLParser::NAME;
-            }
+        *d_val = QString(matched().c_str());
+        return ssl::SSLParser::IDENTIFIER;
+    }
+"%"[A-Za-z][A-Za-z0-9]* {
+        *d_val = QString(matched().c_str());
+        return ssl::SSLParser::REG_ID;
+    }
+_?[A-Za-z][A-Za-z0-9_]*"(" {
+        // chop off trailing paren
+        *d_val = QString(matched().c_str()).left(matched().length()-1);
+        return ssl::SSLParser::NAME_CALL;
+    }
+_?[A-Za-z][A-Za-z0-9_]*"[" {
+        // chop off trailing bracket
+        *d_val = QString(matched().c_str()).left(matched().length()-1);
+        return ssl::SSLParser::NAME_LOOKUP;
+    }
 "."[A-Za-z][A-Za-z.0-9]* |
 "^"\"[A-Za-z][A-Za-z]*\" {
         *d_val = QString(matched().c_str());
@@ -229,7 +227,7 @@ _?[A-Za-z][A-Za-z0-9_]* {
 "$"         {    return matched()[0];    }
 -?[0-9]+"."[0-9]+ {
         *d_val = atof(matched().c_str());
-        return ssl::SSLParser::FLOATNUM;
+        return ssl::SSLParser::FLOAT_NUM;
      }
 -?[0-9]+ {
         *d_val = (int)strtol(matched().c_str(), 0, 10);
@@ -251,7 +249,7 @@ _?[A-Za-z][A-Za-z0-9_]* {
     }
 
 [ \t]+          ;
-#.*$            ;    /* comment */
+#.*$            ;    // comment
 .               ;
 \n
 

@@ -6,26 +6,7 @@
  * WARRANTIES.
  */
 
-/**
- * Updates:
- * Shane Sendall (original C version) Dec 1997
- * Doug Simon (C++ version) Jan 1998
- * 29 Apr 02 - Mike: Mods for boomerang
- * 03 May 02 - Mike: Commented
- * 08 May 02 - Mike: ParamMap -> ParamSet
- * 15 May 02 - Mike: Fixed strToOper: *f was coming out as /f, << as =
- * 16 Jul 02 - Mike: Fixed code in expandTables processing opOpTables: was
- *                doing replacements on results of searchAll
- * 09 Dec 02 - Mike: Added succ() syntax (for SPARC LDD and STD)
- * 29 Sep 03 - Mike: Parse %DF correctly
- * 22 Jun 04 - Mike: TEMP can be a location now (location was var_op)
- * 31 Oct 04 - Mike: srchExpr and srchOp are statics now; saves creating and deleting these expressions for every
- *                opcode. Seems to prevent a lot of memory churn, and may prevent (for now) the mystery
- *                test/sparc/switch_gcc problem (which goes away when you try to gdb it)
- * 30 Aug 04 - Mike: added init_sslparser() for garbage collection safety
- */
-
-/* options */
+// options
 //%debug
 //%print-tokens
 %error-verbose
@@ -66,30 +47,41 @@
     floatTy     : std::shared_ptr<FloatType>;
     charTy      : std::shared_ptr<CharType>;
 
-/*==============================================================================
- * Declaration of token types, associativity and precedence
- *============================================================================*/
 
-%token <str> NAME ASSIGNTYPE
-%token <str> REG_ID REG_NUM DECOR
-%token <str> FPUSH FPOP
-%token <str> TEMP SHARES CONV_FUNC TRUNC_FUNC TRANSCEND FABS_FUNC
-%token <str> NAME_CALL NAME_LOOKUP
+// keywords
+%token KW_INTEGER KW_FLOAT KW_ENDIANNESS
+%token KW_BIG KW_LITTLE
+%token KW_OPERAND
+%token KW_COVERS KW_SHARES KW_FAST KW_FETCHEXEC
+%token KW_FPOP KW_FPUSH
 
-%token         ENDIANNESS BIG LITTLE
-%token         COVERS INDEX
-%token         FNEG THEN
-%token         TO COLON ADDR REG_IDX DEFINE
-%token         MEM_IDX TOK_INTEGER TOK_FLOAT FAST OPERAND
-%token         FETCHEXEC FLAGMACRO SUCCESSOR
 
+// types & variables
+%token <str> IDENTIFIER // name of a variable
+%token <str> REG_ID
+
+// literals
 %token <num> NUM
-%token <dbl> FLOATNUM       /**< I'd prefer type double here! */
+%token <dbl> FLOAT_NUM ///< I'd prefer type double here!
 
-%left  <str> LOG_OP         /**< Logical operation */
-%right <str> COND_OP        /**< Conditional operation */
-%left  <str> BIT_OP         /**< Bit operation */
-%left  <str> ARITH_OP       /**< Arithmetic operation */
+// misc
+%token <str> ASSIGNTYPE
+%token <str> REG_NUM DECOR
+%token <str> TEMP CONV_FUNC TRUNC_FUNC TRANSCEND FABS_FUNC
+%token <str> NAME_CALL NAME_LOOKUP
+%token FLAGMACRO SUCCESSOR
+%token ADDR
+
+// operators
+%token INDEX
+%token FNEG THEN
+%token TO COLON REG_IDX ASSIGN
+%token MEM_IDX
+
+%left  <str> LOG_OP         ///< Logical operation
+%right <str> COND_OP        ///< Conditional operation
+%left  <str> BIT_OP         ///< Bit operation
+%left  <str> ARITH_OP       ///< Arithmetic operation
 %left  <str> FARITH_OP
 %right NOT LNOT
 %left <str> CAST_OP
@@ -97,8 +89,12 @@
 %left S_E       // Sign extend. Note it effectively has low precedence, because being a post operator,
                 // the whole expression is already parsed, and hence is sign extended.
                 // Another reason why ! is deprecated!
+
+// maybe it should be right-associative
+// to make things like %eax@5 + 10 work
 %nonassoc AT
 
+%type <num> const_exp
 %type <exp> exp location exp_term
 %type <str> bin_oper param
 %type <regtransfer> regtransfer assign_regtransfer
@@ -133,11 +129,11 @@ specification:
     ;
 
 parts:
-        instr
-    |   FETCHEXEC rt_list {
+        const_def       ///< Name := value
+    |   instr
+    |   KW_FETCHEXEC rt_list {
             Dict.fetchExecCycle = $2;
         }
-    |   constants       ///< Name := value
     |   table_assign
 
         // Optional one-line section declaring endianness
@@ -154,7 +150,41 @@ parts:
     |   flag_fnc
 
         // Addressing modes (or instruction operands) (optional)
-    |   OPERAND operandlist { Dict.fixupParams(); }
+    |   KW_OPERAND operandlist { Dict.fixupParams(); }
+    ;
+
+const_def:
+        IDENTIFIER ASSIGN const_exp {
+            if (ConstTable.find($1) != ConstTable.end()) {
+                error();
+            }
+            ConstTable[QString($1)] = $3;
+        }
+    ;
+
+const_exp: // TODO: More operators
+        NUM { $$ = $1; }
+    |   IDENTIFIER {
+            if (ConstTable.find($1) == ConstTable.end()) {
+                LOG_ERROR("Undefined constant '%1' encountered.", $1);
+                error();
+            }
+            $$ = ConstTable[QString($1)];
+        }
+    |   '(' const_exp ')' { $$ = $2; }
+    |   const_exp ARITH_OP const_exp {
+            if (QString($2) == "+") {
+                $$ = $1 + $3;
+            }
+            else if (QString($2) == "-") {
+                $$ = $1 - $3;
+            }
+            else {
+                LOG_ERROR("Constants can only be initialized "
+                    "by expressions containing '+' and '-'.");
+                error();
+            }
+        }
     ;
 
 operandlist:
@@ -166,7 +196,7 @@ operand:
         // In the .tex documentation, this is the first, or variant kind
         // Example: reg_or_imm := { imode, rmode };
         //$1    $2    $3      $4        $5
-        param DEFINE '{' list_parameter '}' {
+        param ASSIGN '{' list_parameter '}' {
             // Note: the below copies the list of strings!
                 Dict.DetParamMap[$1].m_params = $4;
                 Dict.DetParamMap[$1].m_kind = PARAM_VARIANT;
@@ -199,8 +229,8 @@ func_parameter:
     ;
 
 reglist:
-        TOK_INTEGER { bFloat = false; } a_reglists
-    |   TOK_FLOAT   { bFloat = true;  } a_reglists
+        KW_INTEGER  { bFloat = false; } a_reglists
+    |   KW_FLOAT   { bFloat = true;  } a_reglists
     ;
 
 a_reglists:
@@ -221,7 +251,7 @@ a_reglist:
             }
             Dict.addRegister( $1, $6, $3, bFloat);
         }
-    |   REG_ID '[' NUM ']' INDEX NUM COVERS REG_ID TO REG_ID {
+    |   REG_ID '[' NUM ']' INDEX NUM KW_COVERS REG_ID TO REG_ID {
             if (Dict.RegMap.find($1) != Dict.RegMap.end()) {
                 error();
             }
@@ -262,7 +292,7 @@ a_reglist:
             Dict.DetRegMap[$6].setMappedOffset(0);
             Dict.DetRegMap[$6].setIsFloat(bFloat);
         }
-    |   REG_ID '[' NUM ']' INDEX NUM SHARES REG_ID AT '[' NUM TO NUM ']' {
+    |   REG_ID '[' NUM ']' INDEX NUM KW_SHARES REG_ID AT '[' NUM TO NUM ']' {
             if (Dict.RegMap.find($1) != Dict.RegMap.end()) {
                 error();
             }
@@ -340,32 +370,8 @@ flag_fnc:
         }
     ;
 
-constants:
-        NAME DEFINE NUM {
-            if (ConstTable.find($1) != ConstTable.end()) {
-                error();
-            }
-            ConstTable[QString($1)] = $3;
-        }
-
-    |   NAME DEFINE NUM ARITH_OP NUM {
-            if (ConstTable.find($1) != ConstTable.end()) {
-                error();
-            }
-            else if (QString($4) == "-") {
-                ConstTable[$1] = $3 - $5;
-            }
-            else if (QString($4) == "+") {
-                ConstTable[$1] = $3 + $5;
-            }
-            else {
-                error();
-            }
-        }
-    ;
-
 table_assign:
-        NAME DEFINE table_expr {
+        IDENTIFIER ASSIGN table_expr {
             const QString name($1);
             TableDict[name] = $3;
         }
@@ -426,15 +432,15 @@ str_term:
     ;
 
 name_expand:
-        '\'' NAME '\'' {
+        '\'' IDENTIFIER '\'' {
             $$();
             $$.push_back("");
             $$.push_back($2);
         }
-    |   '"' NAME '"' {
+    |   '"' IDENTIFIER '"' {
             $$(1, $2);
         }
-    |   '$' NAME {
+    |   '$' IDENTIFIER {
             // expand $2 from table of names
             if (TableDict.find($2) != TableDict.end()) {
                 if (TableDict[$2]->getType() == NAMETABLE)
@@ -447,7 +453,7 @@ name_expand:
                 error();
             }
         }
-    |   NAME {
+    |   IDENTIFIER {
             // try and expand $1 from table of names.
             // if fail, expand using '"' NAME '"' rule
             if (TableDict.find($1) != TableDict.end()) {
@@ -529,7 +535,7 @@ instr_name:
     ;
 
 instr_elem:
-        NAME { $$(std::make_shared<InsNameElem>($1)); }
+        IDENTIFIER { $$(std::make_shared<InsNameElem>($1)); }
     |   name_contract { $$($1); }
     |   instr_elem name_contract {
             $$($1);
@@ -538,7 +544,7 @@ instr_elem:
     ;
 
 name_contract:
-        '\'' NAME '\'' {
+        '\'' IDENTIFIER '\'' {
             $$(std::make_shared<InsOptionElem>($2));
         }
     |   NAME_LOOKUP NUM ']' {
@@ -556,7 +562,7 @@ name_contract:
         }
 
             // Example: ARITH[IDX]    where ARITH := { "ADD", "SUB", ...};
-    |   NAME_LOOKUP NAME ']' {
+    |   NAME_LOOKUP IDENTIFIER ']' {
             if (TableDict.find($1) == TableDict.end()) {
                 LOG_ERROR("Table '%1' has not been declared.", $1);
                 error();
@@ -579,7 +585,7 @@ name_contract:
                 $$(std::make_shared<InsNameElem>(TableDict[$2]->Records[$3]));
             }
         }
-    |   '$' NAME_LOOKUP NAME ']' {
+    |   '$' NAME_LOOKUP IDENTIFIER ']' {
             if (TableDict.find($2) == TableDict.end()) {
                 LOG_ERROR("Table '%1' has not been declared.", $2);
                 error();
@@ -588,7 +594,7 @@ name_contract:
                 $$(std::make_shared<InsListElem>($2, TableDict[$2], $3));
             }
         }
-    |   '"' NAME '"' {
+    |   '"' IDENTIFIER '"' {
             $$(std::make_shared<InsNameElem>($2));
         }
     ;
@@ -670,7 +676,7 @@ list_parameter:
     ;
 
 param:
-        NAME {
+        IDENTIFIER {
             // MVE: Likely wrong. Likely supposed to be OPERAND params only
             Dict.ParamSet.insert($1);
             $$($1);
@@ -692,23 +698,23 @@ list_actualparameter:
 assign_regtransfer:
         // Size   guard =>     lhs    :=    rhs
         //  $1      $2         $4           $6
-        assigntype exp THEN location DEFINE exp {
+        assigntype exp THEN location ASSIGN exp {
             Assign *a(new Assign($1, $4, $6));
             a->setGuard($2);
             $$(a);
         }
     // Size        lhs        :=     rhs
         // $1        $2        $3     $4
-    |   assigntype location DEFINE exp {
+    |   assigntype location ASSIGN exp {
             // update the size of any generated RT's
             $$(new Assign($1, $2, $4));
         }
 
     // FPUSH and FPOP are special "transfers" with just a Terminal
-    |   FPUSH {
+    |   KW_FPUSH {
             $$(new Assign(Terminal::get(opNil), Terminal::get(opFpush)));
         }
-    |   FPOP {
+    |   KW_FPOP {
             $$(new Assign(Terminal::get(opNil), Terminal::get(opFpop)));
         }
     // Just a RHS? Is this used? Note: flag calls are handled at the rt: level
@@ -719,8 +725,8 @@ assign_regtransfer:
     ;
 
 exp_term:
-        NUM         { $$(Const::get($1)); }
-    |   FLOATNUM    { $$(Const::get($1)); }
+        NUM          { $$(Const::get($1)); }
+    |   FLOAT_NUM    { $$(Const::get($1)); }
     |   '(' exp ')' { $$($2); }
     |   location    { $$($1); }
     |   '[' exp '?' exp COLON exp ']' { $$(Ternary::get(opTern, $2, $4, $6)); }
@@ -739,14 +745,14 @@ exp_term:
     |   FABS_FUNC exp ')' {  $$ = (SharedExp)Unary::get(opFabs, $2); }
 
         // FPUSH and FPOP
-    |   FPUSH { $$(Terminal::get(opFpush)); }
-    |   FPOP  { $$(Terminal::get(opFpop));  }
+    |   KW_FPUSH { $$(Terminal::get(opFpush)); }
+    |   KW_FPOP  { $$(Terminal::get(opFpop));  }
         // Transcendental functions
     |   TRANSCEND exp ')' { $$(Unary::get(strToOper($1), $2)); }
 
         // Example: *Use* of COND[idx]
         //  $1       $2
-    |   NAME_LOOKUP NAME ']' {
+    |   NAME_LOOKUP IDENTIFIER ']' {
             if (indexrefmap.find($2) == indexrefmap.end()) {
                 LOG_ERROR("Index '%1' not declared for use.", $2);
                 error();
@@ -835,8 +841,8 @@ exp:
 
         // See comment above re "%prec LOOKUP_RDC"
         // Example: OP1[IDX] where OP1 := {     "&",  "|", "^", ...};
-        //$1     $2      $3  $4   $5
-    |   exp NAME_LOOKUP NAME ']' exp_term %prec LOOKUP_RDC {
+        //$1     $2      $3        $4   $5
+    |   exp NAME_LOOKUP IDENTIFIER ']' exp_term %prec LOOKUP_RDC {
             if (indexrefmap.find($3) == indexrefmap.end()) {
                 error();
             }
@@ -901,7 +907,7 @@ location:
     |   MEM_IDX exp ']' {
             $$(Location::memOf($2));
         }
-    |   NAME {
+    |   IDENTIFIER {
             // This is a mixture of the param: PARM {} match and the value_op: NAME {} match
             SharedExp s;
             std::set<QString>::iterator it = Dict.ParamSet.find($1);
@@ -943,10 +949,10 @@ cast:
     ;
 
 endianness:
-        ENDIANNESS BIG {
+        KW_ENDIANNESS KW_BIG {
             Dict.m_bigEndian = Endian::Big;
         }
-    |   ENDIANNESS LITTLE {
+    |   KW_ENDIANNESS KW_LITTLE {
             Dict.m_bigEndian = Endian::Little;
         }
     ;
@@ -985,7 +991,7 @@ assigntype:
 // Section for indicating which instructions to substitute when using -f (fast but not quite as exact instruction
 // mapping)
 fastlist:
-        FAST fastentries
+        KW_FAST fastentries
     ;
 
 fastentries:
@@ -994,7 +1000,7 @@ fastentries:
     ;
 
 fastentry:
-        NAME INDEX NAME {
+        IDENTIFIER INDEX IDENTIFIER {
             Dict.fastMap[QString($1)] = QString($3);
         }
     ;
