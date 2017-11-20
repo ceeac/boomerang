@@ -528,9 +528,18 @@ instr:
 instr_name:
         instr_elem { $$($1); }
     |   instr_name DECOR {
-            std::shared_ptr<InsNameElem> temp(new InsNameElem(QString($2)));
+            QString decorName = $2;
+            assert(!decorName.isEmpty());
+
+            // remove leading ^
+            if (decorName[0] == '^') { decorName.replace(0, 1, ""); }
+
+            decorName = decorName.replace("\"", "");
+            decorName = decorName.replace(".", "");
+            decorName = decorName.replace("_", "");
+
             $$($1);
-            $$->append(temp);
+            $$->append(std::make_shared<InsNameElem>(decorName));
         }
     ;
 
