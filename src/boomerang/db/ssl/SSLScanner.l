@@ -30,23 +30,18 @@
 
 %%
 
-"INTEGER"       |
-"integer"       { return ssl::SSLParser::KW_INTEGER; }
-"FLOAT"         |
-"float"         { return ssl::SSLParser::KW_FLOAT; }
+"INTEGER"       { return ssl::SSLParser::KW_INTEGER; }
+"FLOAT"         { return ssl::SSLParser::KW_FLOAT; }
 "OPERAND"       { return ssl::SSLParser::KW_OPERAND; }
-"ENDIANNESS"    |
-"endianness"    {
+"ENDIANNESS"    {
         *d_val = QString(matched().c_str());
         return ssl::SSLParser::KW_ENDIANNESS;
     }
-"BIG"           |
-"big"           {
+"BIG"           {
         *d_val = QString(matched().c_str());
         return ssl::SSLParser::KW_BIG;
     }
-"LITTLE"        |
-"little"        {
+"LITTLE"        {
         *d_val = QString(matched().c_str());
         return ssl::SSLParser::KW_LITTLE;
     }
