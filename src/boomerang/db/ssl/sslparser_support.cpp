@@ -313,7 +313,7 @@ void SSLParser::expandTables(const std::shared_ptr<InsNameElem>& iname, const st
 
     // Expand the tables (if any) in this instruction
     for (int i = 0; i < m; i++, iname->increment()) {
-        QString name = iname->getInstruction();
+        const QString& instrName = iname->getInstruction();
 
         // Need to make substitutions to a copy of the RTL
         RTL rtl(*o_rtlist); // deep copy of contents
@@ -346,10 +346,12 @@ void SSLParser::expandTables(const std::shared_ptr<InsNameElem>& iname, const st
                 }
 
                 assert(t->getOper() == opOpTable);
+
                 // The ternary opOpTable has a table and index name as strings, then a list of 2 expressions
                 // (and we want to replace it with e1 OP e2)
                 QString tbl = t->access<Const, 1>()->getStr();
                 QString idx = t->access<Const, 2>()->getStr();
+
                 // The expressions to operate on are in the list
                 auto b = t->access<Binary, 3>();
                 assert(b->getOper() == opList);
@@ -363,9 +365,9 @@ void SSLParser::expandTables(const std::shared_ptr<InsNameElem>& iname, const st
             }
         }
 
-        if (Dict.insert(name, params, rtl) != 0) {
+        if (Dict.insert(instrName, params, rtl) != 0) {
             LOG_ERROR("Pattern '%1' conflicts with an earlier declaration of '%2'",
-                      iname->getInsPattern(), name);
+                      iname->getInsPattern(), instrName);
             error();
         }
     }
