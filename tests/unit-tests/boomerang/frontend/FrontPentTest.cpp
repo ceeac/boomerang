@@ -65,8 +65,10 @@ void FrontPentTest::test1()
     fe->decodeInstruction(addr, inst);
     inst.rtl->print(strm);
 
+    // push ebp
     expected = "0x08048328    0 *32* m[r28 - 4] := r29\n"
                "              0 *32* r28 := r28 - 4\n";
+
     QCOMPARE(actual, expected);
     actual.clear();
 

@@ -963,30 +963,37 @@ endianness:
 
 assigntype:
         ASSIGNTYPE {
-            const char c = qPrintable($1)[1];
-            if (c == '*') {
-                $$(SizeType::get(0)); // MVE: should remove these
-            }
-            else if (isdigit(c)) {
-                const int size = QString($1).midRef(1).toInt();
-                $$(std::make_shared<SizeType>(size));
+            QString typeStr($1);
+            // chop off asterisks
+            typeStr = typeStr.mid(1, typeStr.length()-2);
+
+            if (typeStr.isEmpty()) {
+                $$(VoidType::get());
             }
             else {
-                // Skip star and letter
-                int size = QString($1).midRef(2).toInt();
-                if (size == 0) {
-                    size = STD_SIZE;
+                bool ok = false;
+                int tySize = typeStr.toInt(&ok);
+                if (ok) {
+                    $$(std::make_shared<SizeType>(tySize));
                 }
+                else {
+                    char tyAbbr = typeStr[0].toLatin1();
+                    tySize = typeStr.midRef(1).toInt(&ok);
+                    if (!ok || tyAbbr == 0) {
+                        LOG_ERROR("Parse error: Unknown type '%1'", typeStr);
+                        error();
+                    }
 
-                switch (c) {
-                    case 'i': $$(IntegerType::get(size, 1));  break;
-                    case 'j': $$(IntegerType::get(size, 0));  break;
-                    case 'u': $$(IntegerType::get(size, -1)); break;
-                    case 'f': $$(FloatType::get(size));       break;
-                    case 'c': $$(CharType::get());            break;
+                    switch(tyAbbr) {
+                    case 'i': $$(IntegerType::get(tySize, 1));  break;
+                    case 'j': $$(IntegerType::get(tySize, 0));  break;
+                    case 'u': $$(IntegerType::get(tySize, -1)); break;
+                    case 'f': $$(FloatType::get(tySize));       break;
+                    case 'c': $$(CharType::get());              break;
                     default:
-                        LOG_WARN("Unexpected char '%1' in assign type", c);
+                        LOG_WARN("Unexpected char '%1' in assign type", tyAbbr);
                         $$ = IntegerType::get(0);
+                    }
                 }
             }
         }

@@ -14,6 +14,7 @@
 #include "boomerang/type/type/IntegerType.h"
 #include "boomerang/type/type/CharType.h"
 #include "boomerang/type/type/FloatType.h"
+#include "boomerang/type/type/VoidType.h"
 #include "boomerang/db/ssl/RTLInstDict.h"
 #include "boomerang/util/Log.h"
 
