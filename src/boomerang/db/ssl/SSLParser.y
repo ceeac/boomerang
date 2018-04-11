@@ -726,11 +726,6 @@ assign_regtransfer:
     |   KW_FPOP {
             $$(new Assign(Terminal::get(opNil), Terminal::get(opFpop)));
         }
-    // Just a RHS? Is this used? Note: flag calls are handled at the rt: level
-        // $1       $2
-    |   assigntype exp {
-            $$(new Assign($1, nullptr, $2));
-        }
     ;
 
 exp_term:

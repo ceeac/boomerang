@@ -25,7 +25,7 @@
 
 
 TableEntry::TableEntry()
-    : m_rtl(Address::INVALID)
+    : m_rtl(Address::ZERO)
 {
 }
 
@@ -308,14 +308,16 @@ std::unique_ptr<RTL> RTLInstDict::instantiateRTL(RTL& existingRTL, Address natPC
 /* Small struct for transformPostVars */
 struct transPost
 {
-    bool       used; // If the base expression (e.g. r[0]) is used
-    // Important because if not, we don't have to make any
-    // substitutions at all
-    bool       isNew; // Not sure (MVE)
-    SharedExp  tmp;   // The temp to replace r[0]' with
-    SharedExp  post;  // The whole postvar expression. e.g. r[0]'
-    SharedExp  base;  // The base expression (e.g. r[0])
-    SharedType type;  // The type of the temporary (needed for the final assign)
+    /// If the base expression (e.g. r[0]) is used
+    /// Important because if not, we don't have to make any
+    /// substitutions at all
+    bool       used;
+
+    bool       isNew; ///< Not sure (MVE)
+    SharedExp  tmp;   ///< The temp to replace r[0]' with
+    SharedExp  post;  ///< The whole postvar expression. e.g. r[0]'
+    SharedExp  base;  ///< The base expression (e.g. r[0])
+    SharedType type;  ///< The type of the temporary (needed for the final assign)
 };
 
 

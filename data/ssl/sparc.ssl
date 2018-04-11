@@ -225,7 +225,7 @@ FETCHEXEC           *32* %g0 := 0
 # Load double instruction-  the 1st reg. of double load must be even
 # the 2nd reg. of double load must be the next reg. after 1st, hence odd. 
 #LOADD := { LDD_, LDDA_ }
-LDD      eaddr, rd                      *32*            rd := m[eaddr]
+LDD      eaddr, rd                      *32* rd := m[eaddr]
                                         *32* succ(rd) := m[eaddr + WORD]; 
 # Note: the above offset (WORD) is now in bytes!
 
