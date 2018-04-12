@@ -461,5 +461,4 @@ void RTLInstDict::reset()
     AliasMap.clear();
     fastMap.clear();
     idict.clear();
-    fetchExecCycle = nullptr;
 }

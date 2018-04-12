@@ -215,13 +215,6 @@ OPERAND
 
 
 
-FETCHEXEC           *32* %g0 := 0
-                    *1* %CTI := 0
-                    *32* execute( %pc )
-                    *32* %pc := [ %CTI = 0 ? %npc : %pc ]
-                    *32* %npc := [ %CTI = 0 ? %npc + 4 : %npc ];
-
-
 # Load double instruction-  the 1st reg. of double load must be even
 # the 2nd reg. of double load must be the next reg. after 1st, hence odd. 
 #LOADD := { LDD_, LDDA_ }

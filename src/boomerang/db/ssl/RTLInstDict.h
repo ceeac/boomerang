@@ -200,9 +200,6 @@ private:
     void fixupParamsSub(const QString& s, std::list<QString>& funcParams, bool& haveCount, int mark);
 
 public:
-    /// An RTL describing the machine's basic fetch-execute cycle
-    SharedRTL fetchExecCycle;
-
     /**
      * Runs after the ssl file is parsed to fix up variant params
      * where the arms are lambdas.

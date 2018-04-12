@@ -52,7 +52,7 @@
 %token KW_INTEGER KW_FLOAT KW_ENDIANNESS
 %token KW_BIG KW_LITTLE
 %token KW_OPERAND
-%token KW_COVERS KW_SHARES KW_FAST KW_FETCHEXEC
+%token KW_COVERS KW_SHARES KW_FAST
 %token KW_FPOP KW_FPUSH
 
 
@@ -131,9 +131,6 @@ specification:
 parts:
         const_def       ///< Name := value
     |   instr
-    |   KW_FETCHEXEC rt_list {
-            m_dict.fetchExecCycle = $2;
-        }
     |   table_assign
 
         // Optional one-line section declaring endianness

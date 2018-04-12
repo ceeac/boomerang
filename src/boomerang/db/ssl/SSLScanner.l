@@ -48,7 +48,6 @@
 "COVERS"        { return ssl::SSLParser::KW_COVERS; }
 "SHARES"        { return ssl::SSLParser::KW_SHARES; }
 "FAST"          { return ssl::SSLParser::KW_FAST; }
-"FETCHEXEC"     { return ssl::SSLParser::KW_FETCHEXEC; }
 
 "FPOP"      {    return ssl::SSLParser::KW_FPOP; }
 "FPUSH"     {    return ssl::SSLParser::KW_FPUSH; }
