@@ -1,3 +1,11 @@
 build
 *.kdev4
 *.i64
+
+# Temporarily ignore SSL flexc++/bisonc++ output in source dir
+src/boomerang/db/ssl/SSLParser.cpp
+src/boomerang/db/ssl/SSLParser.h
+src/boomerang/db/ssl/SSLParserBase.h
+src/boomerang/db/ssl/SSLScanner.cpp
+src/boomerang/db/ssl/SSLScanner.h
+src/boomerang/db/ssl/SSLScannerBase.h

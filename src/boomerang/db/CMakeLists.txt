@@ -10,8 +10,8 @@
 # SSLScanner
 add_custom_command(
     OUTPUT
-        ${CMAKE_CURRENT_SOURCE_DIR}/ssl/SSLScanner.h
         ${CMAKE_CURRENT_SOURCE_DIR}/ssl/SSLScanner.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/ssl/SSLScanner.h
         ${CMAKE_CURRENT_SOURCE_DIR}/ssl/SSLScannerBase.h
     COMMAND
         flexc++ "${CMAKE_CURRENT_SOURCE_DIR}/ssl/SSLScanner.l"
