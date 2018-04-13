@@ -98,6 +98,7 @@
 %type <exp> exp location exp_term
 %type <str> bin_oper param
 %type <regtransfer> regtransfer assign_regtransfer
+%type <rtlist> rt_list
 %type <typ> assigntype
 %type <num> cast
 %type <tab> table_expr
@@ -108,7 +109,6 @@
 %type <explist> flag_list
 %type <explist> exprstr_expr exprstr_array
 %type <explist> list_actualparameter
-%type <rtlist> rt_list
 
 %%
 

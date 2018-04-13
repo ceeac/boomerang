@@ -7,10 +7,39 @@
 #
 
 
-add_custom_target(parsers ALL flexc++ "${CMAKE_CURRENT_SOURCE_DIR}/ssl/SSLScanner.l" && bisonc++ "${CMAKE_CURRENT_SOURCE_DIR}/ssl/SSLParser.y"
-    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/ssl/SSLScanner.l"
-    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/ssl/"
+# SSLScanner
+add_custom_command(
+    OUTPUT
+        ${CMAKE_CURRENT_SOURCE_DIR}/ssl/SSLScanner.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/ssl/SSLScanner.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/ssl/SSLScannerBase.h
+    COMMAND
+        flexc++ "${CMAKE_CURRENT_SOURCE_DIR}/ssl/SSLScanner.l"
+    DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/ssl/SSLScanner.l"
+    WORKING_DIRECTORY
+        "${CMAKE_CURRENT_SOURCE_DIR}/ssl"
 )
+
+# SSLParser
+add_custom_command(
+    OUTPUT
+        ${CMAKE_CURRENT_SOURCE_DIR}/ssl/SSLParser.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/ssl/SSLParser.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/ssl/SSLParserBase.h
+    COMMAND
+        bisonc++ "${CMAKE_CURRENT_SOURCE_DIR}/ssl/SSLParser.y"
+    DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/ssl/SSLParser.y"
+    WORKING_DIRECTORY
+        "${CMAKE_CURRENT_SOURCE_DIR}/ssl"
+)
+
+
+add_custom_target(generateSSLScanner ALL DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/ssl/SSLScanner.cpp")
+# always generate parser if scanner is out of date
+add_custom_target(generateSSLParser  ALL DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/ssl/SSLParser.cpp")
+
 
 list(APPEND boomerang-db-sources
     db/BasicBlock

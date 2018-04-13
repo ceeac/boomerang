@@ -23,6 +23,8 @@ add_subdirectory(visitor)
 add_library(boomerang ${boomerang-sources})
 target_link_libraries(boomerang ${CMAKE_DL_LIBS} Qt5::Core ${DEBUG_LIB})
 
+add_dependencies(boomerang generateSSLScanner generateSSLParser)
+
 option(BOOMERANG_INSTALL_DEV "Install boomerang libraries and headers." OFF)
 
 if (BOOMERANG_INSTALL_DEV)
