@@ -57,8 +57,8 @@
 
 
 // types & variables
-%token <str> IDENTIFIER // name of a variable
-%token <str> REG_ID
+%token <str> IDENTIFIER     // name of a variable
+%token <str> REG_IDENTIFIER // name of a register
 
 // literals
 %token <num> NUM
@@ -104,7 +104,7 @@
 %type <tab> table_expr
 %type <insel> name_contract instr_name instr_elem
 %type <strlist> reg_table
-%type <strlist> list_parameter func_parameter
+%type <strlist> paramlist func_parameter
 %type <namelist> str_term str_expr str_array name_expand opstr_expr opstr_array
 %type <explist> flag_list
 %type <explist> exprstr_expr exprstr_array
@@ -113,41 +113,46 @@
 %%
 
 spec_or_assign:
-        assign_regtransfer {
+        ssl_specs
+    |   assign_regtransfer {
             theAssign = dynamic_cast<Assign *>($1);
             assert(theAssign != nullptr);
         }
     |   exp {
             theAssign = new Assign(Terminal::get(opNil), $1);
         }
-    |   specification
     ;
 
-specification:
-        specification parts ';'
-    |   parts ';'
+ssl_specs:
+        ssl_spec ';'
+    |   ssl_spec ';' ssl_specs
     ;
 
-parts:
-        const_def       ///< Name := value
-    |   instr
-    |   table_assign
-
-        // Optional one-line section declaring endianness
-    |   endianness
+ssl_spec:
+        endianness      // Optional one-line section declaring endianness
+    |   const_def       // Name := value
+    |   register_def    // Definition of register(s)
+    |   table_def
+        // Declaration of "flag functions". These describe the detailed flag setting semantics for instructions
+    |   flagfunc_def
+    |   instruction_def
 
         // Optional section describing faster versions of instructions (e.g. that don't inplement the full
         // specifications, but if they work, will be much faster)
-    |   fastlist
-
-        // Definitions of registers (with overlaps, etc)
-    |   reglist
-
-        // Declaration of "flag functions". These describe the detailed flag setting semantics for insructions
-    |   flag_fnc
+    |   KW_FAST fastlist
 
         // Addressing modes (or instruction operands) (optional)
     |   KW_OPERAND operandlist { m_dict.fixupParams(); }
+
+    ;
+
+endianness:
+        KW_ENDIANNESS KW_BIG {
+            m_dict.m_bigEndian = Endian::Big;
+        }
+    |   KW_ENDIANNESS KW_LITTLE {
+            m_dict.m_bigEndian = Endian::Little;
+        }
     ;
 
 const_def:
@@ -184,71 +189,33 @@ const_exp: // TODO: More operators
         }
     ;
 
-operandlist:
-        operandlist ',' operand
-    |   operand
+register_def:
+        KW_INTEGER { m_floatRegister = false; } reglist_sequence
+    |   KW_FLOAT   { m_floatRegister = true;  } reglist_sequence
     ;
 
-operand:
-        // In the .tex documentation, this is the first, or variant kind
-        // Example: reg_or_imm := { imode, rmode };
-        //$1    $2    $3      $4        $5
-        param ASSIGN '{' list_parameter '}' {
-            // Note: the below copies the list of strings!
-                m_dict.DetParamMap[$1].m_params = $4;
-                m_dict.DetParamMap[$1].m_kind = PARAM_VARIANT;
-            }
-
-        // In the documentation, these are the second and third kinds
-        // The third kind is described as the functional, or lambda, form
-        // In terms of DetParamMap[].kind, they are PARAM_EXP unless there
-        // actually are parameters in square brackets, in which case it is
-        // PARAM_LAMBDA
-        // Example: indexA    rs1, rs2 *i32* r[rs1] + r[rs2]
-        //$1       $2             $3           $4      $5
-    |   param list_parameter func_parameter assigntype exp {
-            ParamEntry &param = m_dict.DetParamMap[$1];
-            // Note: The below 2 copy lists of strings
-            param.m_params = $2;
-            param.m_funcParams = $3;
-            param.m_asgn = std::make_shared<Assign>($4, Terminal::get(opNil), $5);
-            param.m_kind = PARAM_ASGN;
-
-            if(!param.m_funcParams.empty()) {
-                param.m_kind = PARAM_LAMBDA;
-            }
-        }
-    ;
-
-func_parameter:
-        '[' list_parameter ']' { $$($2); }
-    |   { $$(); }
-    ;
-
-reglist:
-        KW_INTEGER { m_floatRegister = false; } a_reglists
-    |   KW_FLOAT   { m_floatRegister = true;  } a_reglists
-    ;
-
-a_reglists:
-        a_reglists ',' a_reglist
-    |   a_reglist
+reglist_sequence:
+        a_reglist
+    |   a_reglist ',' reglist_sequence
     ;
 
 a_reglist:
-        REG_ID INDEX NUM {
+        // %eax -> 3
+        REG_IDENTIFIER INDEX NUM {
             if (m_dict.RegMap.find($1) != m_dict.RegMap.end()) {
                 error();
             }
             m_dict.RegMap[$1] = $3;
         }
-    |   REG_ID '[' NUM ']' INDEX NUM {
+        // %eax[32] -> 1
+    |   REG_IDENTIFIER '[' NUM ']' INDEX NUM {
             if (m_dict.RegMap.find($1) != m_dict.RegMap.end()) {
                 error();
             }
             m_dict.addRegister( $1, $6, $3, m_floatRegister);
         }
-    |   REG_ID '[' NUM ']' INDEX NUM KW_COVERS REG_ID TO REG_ID {
+        // %eax_edx[64] -> 10 COVERS eax..edx (note: eax and edx must have adjacent register IDs)
+    |   REG_IDENTIFIER '[' NUM ']' INDEX NUM KW_COVERS REG_IDENTIFIER TO REG_IDENTIFIER {
             if (m_dict.RegMap.find($1) != m_dict.RegMap.end()) {
                 error();
             }
@@ -289,7 +256,8 @@ a_reglist:
             m_dict.DetRegMap[$6].setMappedOffset(0);
             m_dict.DetRegMap[$6].setIsFloat(m_floatRegister);
         }
-    |   REG_ID '[' NUM ']' INDEX NUM KW_SHARES REG_ID AT '[' NUM TO NUM ']' {
+        // %ax[16] -> 10 SHARES %eax@[0..15]
+    |   REG_IDENTIFIER '[' NUM ']' INDEX NUM KW_SHARES REG_IDENTIFIER AT '[' NUM TO NUM ']' {
             if (m_dict.RegMap.find($1) != m_dict.RegMap.end()) {
                 error();
             }
@@ -322,6 +290,7 @@ a_reglist:
             m_dict.DetRegMap[$6].setMappedOffset($11);
             m_dict.DetRegMap[$6].setIsFloat(m_floatRegister);
         }
+        // [%eax, %edx][32] -> 10..11
     |   '[' reg_table ']' '[' NUM ']' INDEX NUM TO NUM {
             if ((int)($2.size()) != ($10 - $8 + 1)) {
                 error();
@@ -336,38 +305,30 @@ a_reglist:
                 }
             }
         }
+        // [%eax, %edx][32] -> -1
     |   '[' reg_table ']' '[' NUM ']' INDEX NUM {
-            std::list<QString>::iterator loc = $2.begin();
-            for (; loc != $2.end(); loc++) {
-                if (m_dict.RegMap.find(*loc) != m_dict.RegMap.end()) {
+            for (const QString& regName : $2) {
+                if (m_dict.RegMap.find(regName) != m_dict.RegMap.end()) {
                     error();
                 }
-                m_dict.addRegister(*loc, $8, $5, m_floatRegister);
+                m_dict.addRegister(regName, $8, $5, m_floatRegister);
             }
         }
     ;
 
 reg_table:
-        reg_table ',' REG_ID {
-            $1.push_back($3);
-            $$($1);
-        }
-    |   REG_ID {
+        REG_IDENTIFIER {
             $$();
             $$.push_back($1);
         }
-    ;
-
-// Flag definitions
-flag_fnc:
-        // $1           $2       $3  $4    $5    $6
-        NAME_CALL list_parameter ')' '{' rt_list '}' {
-            // Note: $2 is a list of strings
-            m_dict.FlagFuncs[$1] = std::make_shared<FlagDef>(listStrToExp($2), $5);
+    |   REG_IDENTIFIER ',' reg_table {
+            $3.push_back($1);
+            $$($3);
         }
     ;
 
-table_assign:
+table_def:
+        // Ex.: shiftOperands := { "<<", ">>" }
         IDENTIFIER ASSIGN table_expr {
             const QString name($1);
             m_tableDict[name] = $3;
@@ -392,13 +353,22 @@ str_expr:
             // cross-product of two str_expr's
             $$(std::deque<QString>());
 
-            for (auto i = $1.begin(); i != $1.end(); i++) {
-                for (auto j = $2.begin(); j != $2.end(); j++) {
-                    $$.push_back((*i) + (*j));
+            for (const QString& i : $1) {
+                for (const QString& j : $2) {
+                    $$.push_back(i + j);
                 }
             }
         }
     |   str_term {
+            $$($1);
+        }
+    ;
+
+str_term:
+        '{' str_array '}' {
+            $$($2);
+        }
+    |   name_expand {
             $$($1);
         }
     ;
@@ -419,14 +389,6 @@ str_array:
         }
     ;
 
-str_term:
-        '{' str_array '}' {
-            $$($2);
-        }
-    |   name_expand {
-            $$($1);
-        }
-    ;
 
 name_expand:
         '\'' IDENTIFIER '\'' {
@@ -468,14 +430,8 @@ name_expand:
         }
     ;
 
-bin_oper:
-        BIT_OP    { $$($1); }
-    |   ARITH_OP  { $$($1); }
-    |   FARITH_OP { $$($1); }
-    ;
-
-    // Example: OP2 := { "<<",    ">>",  ">>A" };
 opstr_expr:
+        // Example: shiftOps := { "<<", ">>", ">>A" };
         '{' opstr_array '}' { $$($2); }
     ;
 
@@ -491,8 +447,14 @@ opstr_array:
         }
     ;
 
-    // Example: COND1_C := { "~%ZF", "%ZF", "~(%ZF | (%NF ^ %OF))", ...
+bin_oper:
+        BIT_OP    { $$($1); }
+    |   ARITH_OP  { $$($1); }
+    |   FARITH_OP { $$($1); }
+    ;
+
 exprstr_expr:
+        // Example: coditionCodes := { "~%ZF", "%ZF", "~(%ZF | (%NF ^ %OF))", ...
         '{' exprstr_array '}' {
             $$($2);
         }
@@ -510,224 +472,73 @@ exprstr_array:
         }
     ;
 
-instr:
-        //  $1
-        instr_name {
-            $1->getRefMap(m_indexRefMap);
+
+exp:
+        exp S_E {
+            $$(Unary::get(opSignExt, $1));
         }
-        //   $3           $4
-        list_parameter rt_list {
-            // This function expands the tables and saves the expanded RTLs to the dictionary
-            expandTables($1, $3, $4, m_dict);
-        }
-    ;
 
-instr_name:
-        instr_elem { $$($1); }
-    |   instr_name DECOR {
-            QString decorName = $2;
-            assert(!decorName.isEmpty());
-
-            // remove leading ^
-            if (decorName[0] == '^') { decorName.replace(0, 1, ""); }
-
-            decorName = decorName.replace("\"", "");
-            decorName = decorName.replace(".", "");
-            decorName = decorName.replace("_", "");
-
-            $$($1);
-            $$->append(std::make_shared<InsNameElem>(decorName));
-        }
-    ;
-
-instr_elem:
-        IDENTIFIER { $$(std::make_shared<InsNameElem>($1)); }
-    |   name_contract { $$($1); }
-    |   instr_elem name_contract {
-            $$($1);
-            $$->append($2);
-        }
-    ;
-
-name_contract:
-        '\'' IDENTIFIER '\'' {
-            $$(std::make_shared<InsOptionElem>($2));
-        }
-    |   NAME_LOOKUP NUM ']' {
-            if (m_tableDict.find($1) == m_tableDict.end()) {
-                LOG_ERROR("Table '%1' has not been declared.", $1);
-                error();
-            }
-            else if (($2 < 0) || ($2 >= (int)m_tableDict[$1]->Records.size())) {
-                LOG_ERROR("Can't get element %1 of table %2.", $2, $1);
-                error();
+        // "%prec CAST_OP" just says that this operator has the precedence of the dummy terminal CAST_OP
+        // It's a "precedence modifier" (see "Context-Dependent Precedence" in the Bison documentation)
+    //  $1   $2
+    |   exp cast %prec CAST_OP {
+            // size casts and the opSize operator were generally deprecated, but now opSize is used to transmit
+            // the size of operands that could be memOfs from the decoder to type analysis
+            if (static_cast<int>($2) == (int)STD_SIZE) {
+                $$($1);
             }
             else {
-                $$(std::make_shared<InsNameElem>(m_tableDict[$1]->Records[$2]));
+                $$(Binary::get(opSize, Const::get($2), $1));
             }
         }
 
-            // Example: ARITH[IDX]    where ARITH := { "ADD", "SUB", ...};
-    |   NAME_LOOKUP IDENTIFIER ']' {
-            if (m_tableDict.find($1) == m_tableDict.end()) {
-                LOG_ERROR("Table '%1' has not been declared.", $1);
+    |   NOT exp  { $$(Unary::get(opNot, $2));  }
+    |   LNOT exp { $$(Unary::get(opLNot, $2)); }
+    |   FNEG exp { $$(Unary::get(opFNeg, $2)); }
+    |   exp FARITH_OP exp { $$(Binary::get(strToOper($2), $1, $3)); }
+    |   exp ARITH_OP exp  { $$(Binary::get(strToOper($2), $1, $3)); }
+    |   exp BIT_OP exp    { $$(Binary::get(strToOper($2), $1, $3)); }
+    |   exp COND_OP exp   { $$(Binary::get(strToOper($2), $1, $3)); }
+    |   exp LOG_OP exp    { $$(Binary::get(strToOper($2), $1, $3)); }
+
+        // See comment above re "%prec LOOKUP_RDC"
+        // Example: OP1[IDX] where OP1 := {     "&",  "|", "^", ...};
+        //$1     $2      $3        $4   $5
+    |   exp NAME_LOOKUP IDENTIFIER ']' exp_term %prec LOOKUP_RDC {
+            if (m_indexRefMap.find($3) == m_indexRefMap.end()) {
                 error();
             }
-            else {
-                $$(std::make_shared<InsListElem>($1, m_tableDict[$1], $2));
-            }
-        }
-
-    |   '$' NAME_LOOKUP NUM ']' {
-            if (m_tableDict.find($2) == m_tableDict.end()) {
-                LOG_ERROR("Table %1 has not been declared.", $2);
+            else if (m_tableDict.find($2) == m_tableDict.end()) {
                 error();
             }
-            else if (($3 < 0) || ($3 >= (int)m_tableDict[$2]->Records.size())) {
-                LOG_ERROR("Can't get element %1 of table '%2'.", $3, $2);
+            else if (m_tableDict[$2]->getType() != OPTABLE) {
                 error();
             }
-            else {
-                $$(std::make_shared<InsNameElem>(m_tableDict[$2]->Records[$3]));
-            }
-        }
-    |   '$' NAME_LOOKUP IDENTIFIER ']' {
-            if (m_tableDict.find($2) == m_tableDict.end()) {
-                LOG_ERROR("Table '%1' has not been declared.", $2);
+            else if (m_tableDict[$2]->Records.size() < m_indexRefMap[$3]->getNumTokens()) {
                 error();
             }
-            else {
-                $$(std::make_shared<InsListElem>($2, m_tableDict[$2], $3));
-            }
+
+            $$(Ternary::get(opOpTable, Const::get($2), Const::get($3),
+                    Binary::get(opList,
+                            $1,
+                            Binary::get(opList,
+                                    $5,
+                                    Terminal::get(opNil)))));
         }
-    |   '"' IDENTIFIER '"' {
-            $$(std::make_shared<InsNameElem>($2));
+
+    |   exp_term { $$($1); }
+    ;
+
+ cast:
+        '{' NUM '}' {
+            $$ = $2;
         }
     ;
 
-rt_list:
-        rt_list regtransfer {
-            // append any automatically generated register transfers and clear the list they were stored in.
-            // Do nothing for a NOP (i.e. $2 = 0)
-            if ($2 != NULL) {
-                $1->append($2);
-            }
-            $$($1);
-        }
-    |   regtransfer {
-            // WARN: the code here was RTL(StmtType::Assign), which is not right, since RTL parameter is an address
-            $$(std::make_shared<RTL>(Address::ZERO));
-            if ($1 != NULL) {
-                $$->append($1);
-            }
-        }
-    ;
-
-regtransfer:
-        assign_regtransfer { $$($1); }
-
-        // Example: ADDFLAGS(r[tmp], reg_or_imm, r[rd])
-        // $1              $2          $3
-    |   NAME_CALL list_actualparameter ')' {
-            if (m_dict.FlagFuncs.find($1) != m_dict.FlagFuncs.end()) {
-                // Note: SETFFLAGS assigns to the floating point flags. All others to the integer flags
-                const bool floatFlags = (QString($1) == "SETFFLAGS");
-                const OPER op = floatFlags ? opFflags : opFlags;
-
-                $$(new Assign(Terminal::get(op),
-                        Binary::get(opFlagCall, Const::get($1), listExpToExp($2))));
-            }
-            else {
-                LOG_ERROR("'%1' is not declared as a flag function.", $1);
-                error();
-            }
-        }
-    |   FLAGMACRO flag_list ')' {
-            $$(nullptr);
-        }
-            // E.g. undefineflags() (but we don't handle this yet... flags are changed, but not in a way we support)
-    |   FLAGMACRO ')' { $$(nullptr); }
-    |   '_'           { $$(nullptr); }
-    ;
-
-flag_list:
-        flag_list ',' REG_ID {
-            // Not sure why the below is commented out (MVE)
-//            Location* pFlag = Location::regOf(m_dict.RegMap[$3]);
-//            $1->push_back(pFlag);
-//            $$ = $1;
-            $$ = 0;
-        }
-    |   REG_ID {
-//            std::list<Exp*>* tmp = new std::list<Exp*>;
-//            Unary* pFlag = new Unary(opIdRegOf, m_dict.RegMap[$1]);
-//            tmp->push_back(pFlag);
-//            $$ = tmp;
-            $$ = 0;
-        }
-    ;
-
-    // Note: this list is a list of strings (other code needs this)
-list_parameter:
-        list_parameter ',' param {
-            assert($3 != 0);
-            $1.push_back($3);
-            $$ = $1;
-        }
-    |   param {
-            $$();
-            $$.push_back($1);
-        }
-    |   { $$(); }
-    ;
-
-param:
-        IDENTIFIER {
-            // MVE: Likely wrong. Likely supposed to be OPERAND params only
-            m_dict.ParamSet.insert($1);
-            $$($1);
-        }
-    ;
-
-list_actualparameter:
-        list_actualparameter ',' exp {
-            $$($1);
-            $$.push_back($3);
-        }
-    |   exp {
-            $$();
-            $$.push_back($1);
-        }
-    |   {   $$(); }
-    ;
-
-assign_regtransfer:
-        // Size   guard =>     lhs    :=    rhs
-        //  $1      $2         $4           $6
-        assigntype exp THEN location ASSIGN exp {
-            Assign *a(new Assign($1, $4, $6));
-            a->setGuard($2);
-            $$(a);
-        }
-    // Size        lhs        :=     rhs
-        // $1        $2        $3     $4
-    |   assigntype location ASSIGN exp {
-            // update the size of any generated RT's
-            $$(new Assign($1, $2, $4));
-        }
-
-    // FPUSH and FPOP are special "transfers" with just a Terminal
-    |   KW_FPUSH {
-            $$(new Assign(Terminal::get(opNil), Terminal::get(opFpush)));
-        }
-    |   KW_FPOP {
-            $$(new Assign(Terminal::get(opNil), Terminal::get(opFpop)));
-        }
-    ;
 
 exp_term:
-        NUM          { $$(Const::get($1)); }
-    |   FLOAT_NUM    { $$(Const::get($1)); }
+        NUM         { $$(Const::get($1)); }
+    |   FLOAT_NUM   { $$(Const::get($1)); }
     |   '(' exp ')' { $$($2); }
     |   location    { $$($1); }
     |   '[' exp '?' exp COLON exp ']' { $$(Ternary::get(opTern, $2, $4, $6)); }
@@ -809,67 +620,11 @@ exp_term:
         }
     ;
 
-exp:
-        exp S_E {
-            $$(Unary::get(opSignExt, $1));
-        }
-
-        // "%prec CAST_OP" just says that this operator has the precedence of the dummy terminal CAST_OP
-        // It's a "precedence modifier" (see "Context-Dependent Precedence" in the Bison documentation)
-    //  $1   $2
-    |   exp cast %prec CAST_OP {
-            // size casts and the opSize operator were generally deprecated, but now opSize is used to transmit
-            // the size of operands that could be memOfs from the decoder to type analysis
-            if (static_cast<int>($2) == (int)STD_SIZE) {
-                $$($1);
-            }
-            else {
-                $$(Binary::get(opSize, Const::get($2), $1));
-            }
-        }
-
-    |   NOT exp  { $$(Unary::get(opNot, $2));  }
-    |   LNOT exp { $$(Unary::get(opLNot, $2)); }
-    |   FNEG exp { $$(Unary::get(opFNeg, $2)); }
-    |   exp FARITH_OP exp { $$(Binary::get(strToOper($2), $1, $3)); }
-    |   exp ARITH_OP exp  { $$(Binary::get(strToOper($2), $1, $3)); }
-    |   exp BIT_OP exp    { $$(Binary::get(strToOper($2), $1, $3)); }
-    |   exp COND_OP exp   { $$(Binary::get(strToOper($2), $1, $3)); }
-    |   exp LOG_OP exp    { $$(Binary::get(strToOper($2), $1, $3)); }
-
-        // See comment above re "%prec LOOKUP_RDC"
-        // Example: OP1[IDX] where OP1 := {     "&",  "|", "^", ...};
-        //$1     $2      $3        $4   $5
-    |   exp NAME_LOOKUP IDENTIFIER ']' exp_term %prec LOOKUP_RDC {
-            if (m_indexRefMap.find($3) == m_indexRefMap.end()) {
-                error();
-            }
-            else if (m_tableDict.find($2) == m_tableDict.end()) {
-                error();
-            }
-            else if (m_tableDict[$2]->getType() != OPTABLE) {
-                error();
-            }
-            else if (m_tableDict[$2]->Records.size() < m_indexRefMap[$3]->getNumTokens()) {
-                error();
-            }
-
-            $$(Ternary::get(opOpTable, Const::get($2), Const::get($3),
-                    Binary::get(opList,
-                            $1,
-                            Binary::get(opList,
-                                    $5,
-                                    Terminal::get(opNil)))));
-        }
-
-    |   exp_term { $$($1); }
-    ;
-
 location:
         // This is for constant register numbers. Often, these are special, in the sense that the register mapping
         // is -1. If so, the equivalent of a special register is generated, i.e. a Terminal or opMachFtr
         // (machine specific feature) representing that register.
-        REG_ID {
+        REG_IDENTIFIER {
             const bool isFlag = QString($1).contains("flags");
             std::map<QString, int>::const_iterator it = m_dict.RegMap.find($1);
             if (it == m_dict.RegMap.end() && !isFlag) {
@@ -940,18 +695,115 @@ location:
         }
     ;
 
-cast:
-        '{' NUM '}' {
-            $$ = $2;
+list_actualparameter:
+        list_actualparameter ',' exp {
+            $$($1);
+            $$.push_back($3);
+        }
+    |   exp {
+            $$();
+            $$.push_back($1);
+        }
+    |   {   $$(); }
+    ;
+
+// Flag definitions
+flagfunc_def:
+        // $1       $2      $3  $4    $5    $6
+        NAME_CALL paramlist ')' '{' rt_list '}' {
+            // Note: $2 is a list of strings
+            m_dict.FlagFuncs[$1] = std::make_shared<FlagDef>(listStrToExp($2), $5);
         }
     ;
 
-endianness:
-        KW_ENDIANNESS KW_BIG {
-            m_dict.m_bigEndian = Endian::Big;
+    // Note: this list is a list of strings (other code needs this)
+paramlist:
+        { $$(); }
+    |   param {
+            $$();
+            $$.push_back($1);
         }
-    |   KW_ENDIANNESS KW_LITTLE {
-            m_dict.m_bigEndian = Endian::Little;
+    |   paramlist ',' param {
+            assert($3 != 0);
+            $1.push_back($3);
+            $$ = $1;
+        }
+    ;
+
+param:
+        IDENTIFIER {
+            // MVE: Likely wrong. Likely supposed to be OPERAND params only
+            m_dict.ParamSet.insert($1);
+            $$($1);
+        }
+    ;
+
+rt_list:
+        rt_list regtransfer {
+            // append any automatically generated register transfers and clear the list they were stored in.
+            // Do nothing for a NOP (i.e. $2 = 0)
+            if ($2 != NULL) {
+                $1->append($2);
+            }
+            $$($1);
+        }
+    |   regtransfer {
+            // WARN: the code here was RTL(StmtType::Assign), which is not right, since RTL parameter is an address
+            $$(std::make_shared<RTL>(Address::ZERO));
+            if ($1 != NULL) {
+                $$->append($1);
+            }
+        }
+    ;
+
+regtransfer:
+        assign_regtransfer { $$($1); }
+
+        // Example: ADDFLAGS(r[tmp], reg_or_imm, r[rd])
+        // $1              $2          $3
+    |   NAME_CALL list_actualparameter ')' {
+            if (m_dict.FlagFuncs.find($1) != m_dict.FlagFuncs.end()) {
+                // Note: SETFFLAGS assigns to the floating point flags. All others to the integer flags
+                const bool floatFlags = (QString($1) == "SETFFLAGS");
+                const OPER op = floatFlags ? opFflags : opFlags;
+
+                $$(new Assign(Terminal::get(op),
+                        Binary::get(opFlagCall, Const::get($1), listExpToExp($2))));
+            }
+            else {
+                LOG_ERROR("'%1' is not declared as a flag function.", $1);
+                error();
+            }
+        }
+    |   FLAGMACRO flag_list ')' {
+            $$(nullptr);
+        }
+            // E.g. undefineflags() (but we don't handle this yet... flags are changed, but not in a way we support)
+    |   FLAGMACRO ')' { $$(nullptr); }
+    |   '_'           { $$(nullptr); }
+    ;
+
+assign_regtransfer:
+        // Size   guard =>     lhs    :=    rhs
+        //  $1      $2         $4           $6
+        assigntype exp THEN location ASSIGN exp {
+            Assign *a(new Assign($1, $4, $6));
+            a->setGuard($2);
+            $$(a);
+        }
+    // Size        lhs        :=     rhs
+        // $1        $2        $3     $4
+    |   assigntype location ASSIGN exp {
+            // update the size of any generated RT's
+            $$(new Assign($1, $2, $4));
+        }
+
+    // FPUSH and FPOP are special "transfers" with just a Terminal
+    |   KW_FPUSH {
+            $$(new Assign(Terminal::get(opNil), Terminal::get(opFpush)));
+        }
+    |   KW_FPOP {
+            $$(new Assign(Terminal::get(opNil), Terminal::get(opFpop)));
         }
     ;
 
@@ -993,14 +845,120 @@ assigntype:
         }
     ;
 
+flag_list:
+        flag_list ',' REG_IDENTIFIER {
+            // Not sure why the below is commented out (MVE)
+//            Location* pFlag = Location::regOf(m_dict.RegMap[$3]);
+//            $1->push_back(pFlag);
+//            $$ = $1;
+            $$ = 0;
+        }
+    |   REG_IDENTIFIER {
+//            std::list<Exp*>* tmp = new std::list<Exp*>;
+//            Unary* pFlag = new Unary(opIdRegOf, m_dict.RegMap[$1]);
+//            tmp->push_back(pFlag);
+//            $$ = tmp;
+            $$ = 0;
+        }
+    ;
+
+// instruction definition
+instruction_def:
+        //  $1                                         $3         $4
+        instr_name { $1->getRefMap(m_indexRefMap); } paramlist rt_list {
+            // This function expands the tables and saves the expanded RTLs to the dictionary
+            expandTables($1, $3, $4, m_dict);
+        }
+    ;
+
+instr_name:
+        instr_elem { $$($1); }
+    |   instr_name DECOR {
+            QString decorName = $2;
+            assert(!decorName.isEmpty());
+
+            // remove leading ^
+            if (decorName[0] == '^') { decorName.replace(0, 1, ""); }
+
+            decorName = decorName.replace("\"", "");
+            decorName = decorName.replace(".", "");
+            decorName = decorName.replace("_", "");
+
+            $$($1);
+            $$->append(std::make_shared<InsNameElem>(decorName));
+        }
+    ;
+
+instr_elem:
+        IDENTIFIER { $$(std::make_shared<InsNameElem>($1)); }
+    |   name_contract { $$($1); }
+    |   instr_elem name_contract {
+            $$($1);
+            $$->append($2);
+        }
+    ;
+
+name_contract:
+        '\'' IDENTIFIER '\'' {
+            $$(std::make_shared<InsOptionElem>($2));
+        }
+    |   NAME_LOOKUP NUM ']' {
+            if (m_tableDict.find($1) == m_tableDict.end()) {
+                LOG_ERROR("Table '%1' has not been declared.", $1);
+                error();
+            }
+            else if (($2 < 0) || ($2 >= (int)m_tableDict[$1]->Records.size())) {
+                LOG_ERROR("Can't get element %1 of table %2.", $2, $1);
+                error();
+            }
+            else {
+                $$(std::make_shared<InsNameElem>(m_tableDict[$1]->Records[$2]));
+            }
+        }
+
+        // Example: ARITH[IDX]    where ARITH := { "ADD", "SUB", ...};
+    |   NAME_LOOKUP IDENTIFIER ']' {
+            if (m_tableDict.find($1) == m_tableDict.end()) {
+                LOG_ERROR("Table '%1' has not been declared.", $1);
+                error();
+            }
+            else {
+                $$(std::make_shared<InsListElem>($1, m_tableDict[$1], $2));
+            }
+        }
+
+    |   '$' NAME_LOOKUP NUM ']' {
+            if (m_tableDict.find($2) == m_tableDict.end()) {
+                LOG_ERROR("Table %1 has not been declared.", $2);
+                error();
+            }
+            else if (($3 < 0) || ($3 >= (int)m_tableDict[$2]->Records.size())) {
+                LOG_ERROR("Can't get element %1 of table '%2'.", $3, $2);
+                error();
+            }
+            else {
+                $$(std::make_shared<InsNameElem>(m_tableDict[$2]->Records[$3]));
+            }
+        }
+    |   '$' NAME_LOOKUP IDENTIFIER ']' {
+            if (m_tableDict.find($2) == m_tableDict.end()) {
+                LOG_ERROR("Table '%1' has not been declared.", $2);
+                error();
+            }
+            else {
+                $$(std::make_shared<InsListElem>($2, m_tableDict[$2], $3));
+            }
+        }
+    |   '"' IDENTIFIER '"' {
+            $$(std::make_shared<InsNameElem>($2));
+        }
+    ;
+
+
 // Section for indicating which instructions to substitute when using -f (fast but not quite as exact instruction
 // mapping)
 fastlist:
-        KW_FAST fastentries
-    ;
-
-fastentries:
-        fastentries ',' fastentry
+        fastlist ',' fastentry
     |   fastentry
     ;
 
@@ -1009,3 +967,45 @@ fastentry:
             m_dict.fastMap[QString($1)] = QString($3);
         }
     ;
+
+operandlist:
+        operand
+    |   operand ',' operandlist
+    ;
+
+operand:
+        // In the .tex documentation, this is the first, or variant kind
+        // Example: reg_or_imm := { imode, rmode };
+        //$1    $2    $3     $4    $5
+        param ASSIGN '{' paramlist '}' {
+            // Note: the below copies the list of strings!
+                m_dict.DetParamMap[$1].m_params = $4;
+                m_dict.DetParamMap[$1].m_kind = PARAM_VARIANT;
+            }
+
+        // In the documentation, these are the second and third kinds
+        // The third kind is described as the functional, or lambda, form
+        // In terms of DetParamMap[].kind, they are PARAM_EXP unless there
+        // actually are parameters in square brackets, in which case it is
+        // PARAM_LAMBDA
+        // Example: indexA    rs1, rs2 *i32* r[rs1] + r[rs2]
+        //$1       $2         $3           $4      $5
+    |   param paramlist func_parameter assigntype exp {
+            ParamEntry &param = m_dict.DetParamMap[$1];
+            // Note: The below 2 copy lists of strings
+            param.m_params = $2;
+            param.m_funcParams = $3;
+            param.m_asgn = std::make_shared<Assign>($4, Terminal::get(opNil), $5);
+            param.m_kind = PARAM_ASGN;
+
+            if(!param.m_funcParams.empty()) {
+                param.m_kind = PARAM_LAMBDA;
+            }
+        }
+    ;
+
+func_parameter:
+        '[' paramlist ']' { $$($2); }
+    |   { $$(); }
+    ;
+

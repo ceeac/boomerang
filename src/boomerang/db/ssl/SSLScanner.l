@@ -196,7 +196,7 @@ _?[A-Za-z][A-Za-z0-9_]* {
     }
 "%"[A-Za-z][A-Za-z0-9]* {
         *d_val = QString(matched().c_str());
-        return ssl::SSLParser::REG_ID;
+        return ssl::SSLParser::REG_IDENTIFIER;
     }
 _?[A-Za-z][A-Za-z0-9_]*"(" {
         // chop off trailing paren
