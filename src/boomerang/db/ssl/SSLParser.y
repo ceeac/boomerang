@@ -745,9 +745,6 @@ exp_term:
         // fabs function: fabs(-3.01) == 3.01
     |   FABS_FUNC exp ')' {  $$ = (SharedExp)Unary::get(opFabs, $2); }
 
-        // FPUSH and FPOP
-    |   KW_FPUSH { $$(Terminal::get(opFpush)); }
-    |   KW_FPOP  { $$(Terminal::get(opFpop));  }
         // Transcendental functions
     |   TRANSCEND exp ')' { $$(Unary::get(strToOper($1), $2)); }
 
