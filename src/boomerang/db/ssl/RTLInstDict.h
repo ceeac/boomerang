@@ -153,7 +153,7 @@ private:
      * \returns the instantiated list of Exps
      */
     std::unique_ptr<RTL> instantiateRTL(RTL& rtls, Address pc, std::list<QString>& params,
-                                           const std::vector<SharedExp>& actuals);
+                                        const std::vector<SharedExp>& actuals);
 
     /**
      * Appends one RTL to the dictionary, or adds it to idict if an
@@ -199,7 +199,7 @@ private:
 
     void fixupParamsSub(const QString& s, std::list<QString>& funcParams, bool& haveCount, int mark);
 
-public:
+private:
     /**
      * Runs after the ssl file is parsed to fix up variant params
      * where the arms are lambdas.
@@ -214,7 +214,10 @@ public:
      */
     void addRegister(const QString& name, int id, int size, bool flt);
 
+    bool isRegisterDefined(const QString& name) const
+    { return RegMap.find(name) != RegMap.end(); }
 
+private:
     /// Parameter (instruction operand, more like addressing mode) details (where given)
     QMap<QString, ParamEntry> DetParamMap;
 

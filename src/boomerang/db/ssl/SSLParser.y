@@ -200,21 +200,21 @@ reglist_sequence:
 a_reglist:
         // %eax -> 3
         REG_IDENTIFIER INDEX NUM {
-            if (m_dict.RegMap.find($1) != m_dict.RegMap.end()) {
+            if (m_dict.isRegisterDefined($1)) {
                 error("Register '%1' is already defined.", $1);
             }
             m_dict.RegMap[$1] = $3;
         }
         // %eax[32] -> 1
     |   REG_IDENTIFIER '[' NUM ']' INDEX NUM {
-            if (m_dict.RegMap.find($1) != m_dict.RegMap.end()) {
+            if (m_dict.isRegisterDefined($1)) {
                 error("Register '%1' is already defined.", $1);
             }
             m_dict.addRegister($1, $6, $3, m_floatRegister);
         }
         // %eax_edx[64] -> 10 COVERS eax..edx (note: eax and edx must have adjacent register IDs)
     |   REG_IDENTIFIER '[' NUM ']' INDEX NUM KW_COVERS REG_IDENTIFIER TO REG_IDENTIFIER {
-            if (m_dict.RegMap.find($1) != m_dict.RegMap.end()) {
+            if (m_dict.isRegisterDefined($1)) {
                 error("Register '$1' is already defined.", $1);
             }
 
@@ -228,11 +228,11 @@ a_reglist:
             m_dict.DetRegMap[$6].setSize($3);
 
             // check range is legitimate for size. 8,10
-            if (m_dict.RegMap.find($8) == m_dict.RegMap.end()) {
+            if (!m_dict.isRegisterDefined($8)) {
                 error("Invalid range %1..%2: Register %3 is not defined.",
                     $8, $10, $8);
             }
-            else if (m_dict.RegMap.find($10) == m_dict.RegMap.end()) {
+            else if (!m_dict.isRegisterDefined($10)) {
                 error("Invalid range %1..%2: Register %3 is not defined.",
                     $8, $10, $10);
             }
@@ -261,8 +261,8 @@ a_reglist:
         }
         // %ax[16] -> 10 SHARES %eax@[0..15]
     |   REG_IDENTIFIER '[' NUM ']' INDEX NUM KW_SHARES REG_IDENTIFIER AT '[' NUM TO NUM ']' {
-            if (m_dict.RegMap.find($1) != m_dict.RegMap.end()) {
-                error();
+            if (m_dict.isRegisterDefined($1)) {
+                error("Register %1 is already defined", $1);
             }
 
             m_dict.RegMap[$1] = $6;
@@ -280,12 +280,10 @@ a_reglist:
                 error();
             }
 
-            if (m_dict.RegMap.find($8) != m_dict.RegMap.end()) {
-                if ($13 >= m_dict.DetRegMap[m_dict.RegMap[$8]].getSize()) {
-                    error();
-                }
+            if (!m_dict.isRegisterDefined($8)) {
+                error("Register %1 is not defined.", $8);
             }
-            else {
+            else if ($13 >= m_dict.DetRegMap[m_dict.RegMap[$8]].getSize()) {
                 error();
             }
 
@@ -302,7 +300,7 @@ a_reglist:
             else {
                 std::list<QString>::iterator loc = $2.begin();
                 for (int x = $8; x <= $10; x++, loc++) {
-                    if (m_dict.RegMap.find(*loc) != m_dict.RegMap.end()) {
+                    if (m_dict.isRegisterDefined(*loc)) {
                         error("Register %1 is already defined", *loc);
                     }
                     m_dict.addRegister(*loc, x, $5, m_floatRegister);
@@ -313,8 +311,8 @@ a_reglist:
         // [%eax, %edx][32] -> -1
     |   '[' reg_table ']' '[' NUM ']' INDEX NUM {
             for (const QString& regName : $2) {
-                if (m_dict.RegMap.find(regName) != m_dict.RegMap.end()) {
-                    error();
+                if (m_dict.isRegisterDefined(regName)) {
+                    error("Register %1 is already defined.", regName);
                 }
                 m_dict.addRegister(regName, $8, $5, m_floatRegister);
             }
@@ -633,7 +631,7 @@ location:
             const bool isFlag = QString($1).contains("flags");
             std::map<QString, int>::const_iterator it = m_dict.RegMap.find($1);
             if (it == m_dict.RegMap.end() && !isFlag) {
-                error();
+                error("Undefined register %1 encountered", $1);
             }
             else if (isFlag || it->second == -1) {
                 // A special register, e.g. %npc or %CF. Return a Terminal for it
