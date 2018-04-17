@@ -214,8 +214,10 @@ private:
      */
     void addRegister(const QString& name, int id, int size, bool flt);
 
-    bool isRegisterDefined(const QString& name) const
+    bool isRegDefined(const QString& name) const
     { return RegMap.find(name) != RegMap.end(); }
+
+    int getRegIndex(const QString& regName) const;
 
 private:
     /// Parameter (instruction operand, more like addressing mode) details (where given)

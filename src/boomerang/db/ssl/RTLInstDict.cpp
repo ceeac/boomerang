@@ -462,3 +462,10 @@ void RTLInstDict::reset()
     fastMap.clear();
     idict.clear();
 }
+
+
+int RTLInstDict::getRegIndex(const QString& regName) const
+{
+    auto it = RegMap.find(regName);
+    return (it != RegMap.end()) ? it->second : -1;
+}
