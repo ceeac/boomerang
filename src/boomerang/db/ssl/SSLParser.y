@@ -158,7 +158,7 @@ endianness:
 const_def:
         IDENTIFIER ASSIGN const_exp {
             if (m_constTable.find($1) != m_constTable.end()) {
-                error();
+                error("Constant '%1' is alread defined", $1);
             }
             m_constTable[QString($1)] = $3;
         }
@@ -168,8 +168,7 @@ const_exp: // TODO: More operators
         NUM { $$ = $1; }
     |   IDENTIFIER {
             if (m_constTable.find($1) == m_constTable.end()) {
-                LOG_ERROR("Undefined constant '%1' encountered.", $1);
-                error();
+                error("Undefined constant identifier '%1' encountered.", $1);
             }
             $$ = m_constTable[QString($1)];
         }
@@ -182,9 +181,8 @@ const_exp: // TODO: More operators
                 $$ = $1 - $3;
             }
             else {
-                LOG_ERROR("Constants can only be initialized "
+                error("Constants can only be initialized "
                     "by expressions containing '+' and '-'.");
-                error();
             }
         }
     ;
@@ -203,55 +201,60 @@ a_reglist:
         // %eax -> 3
         REG_IDENTIFIER INDEX NUM {
             if (m_dict.RegMap.find($1) != m_dict.RegMap.end()) {
-                error();
+                error("Register '%1' is already defined.", $1);
             }
             m_dict.RegMap[$1] = $3;
         }
         // %eax[32] -> 1
     |   REG_IDENTIFIER '[' NUM ']' INDEX NUM {
             if (m_dict.RegMap.find($1) != m_dict.RegMap.end()) {
-                error();
+                error("Register '%1' is already defined.", $1);
             }
-            m_dict.addRegister( $1, $6, $3, m_floatRegister);
+            m_dict.addRegister($1, $6, $3, m_floatRegister);
         }
         // %eax_edx[64] -> 10 COVERS eax..edx (note: eax and edx must have adjacent register IDs)
     |   REG_IDENTIFIER '[' NUM ']' INDEX NUM KW_COVERS REG_IDENTIFIER TO REG_IDENTIFIER {
             if (m_dict.RegMap.find($1) != m_dict.RegMap.end()) {
-                error();
+                error("Register '$1' is already defined.", $1);
             }
 
             m_dict.RegMap[$1] = $6;
             // Now for detailed Reg information
             if (m_dict.DetRegMap.find($6) != m_dict.DetRegMap.end()) {
-                error();
+                error("Register index %1 already in use.", $6);
             }
 
             m_dict.DetRegMap[$6].setName($1);
             m_dict.DetRegMap[$6].setSize($3);
 
             // check range is legitimate for size. 8,10
-            if ((m_dict.RegMap.find($8) == m_dict.RegMap.end()) || (m_dict.RegMap.find($10) == m_dict.RegMap.end())) {
-                error();
+            if (m_dict.RegMap.find($8) == m_dict.RegMap.end()) {
+                error("Invalid range %1..%2: Register %3 is not defined.",
+                    $8, $10, $8);
             }
-            else {
-                int bitsize = m_dict.DetRegMap[m_dict.RegMap[$10]].getSize();
-                for (int i = m_dict.RegMap[$8]; i != m_dict.RegMap[$10]; i++) {
-                    if (m_dict.DetRegMap.find(i) == m_dict.DetRegMap.end()) {
-                        error();
-                        break;
-                    }
-                    bitsize += m_dict.DetRegMap[i].getSize();
-                    if (bitsize > $3) {
-                        error();
-                        break;
-                    }
+            else if (m_dict.RegMap.find($10) == m_dict.RegMap.end()) {
+                error("Invalid range %1..%2: Register %3 is not defined.",
+                    $8, $10, $10);
+            }
+
+            const int regRangeStart = m_dict.RegMap[$8];
+            const int regRangeEnd   = m_dict.RegMap[$10];
+
+            int regsizeSum = 0;
+            for (int i = regRangeStart; i != regRangeEnd+1; i++) {
+                if (m_dict.DetRegMap.find(i) == m_dict.DetRegMap.end()) {
+                    error("Invalid range %1..%2: Index %3 is not mapped to a register",
+                        regRangeStart, regRangeEnd, i);
                 }
 
-                if (bitsize < $3) {
-                    error();
-                    // TODO copy information
-                }
+                regsizeSum += m_dict.DetRegMap[i].getSize();
             }
+
+            if (regsizeSum != $3) {
+                error("Mismatched cover register size: Size of register %1 is %2 bits, but covers %3 bits",
+                    $1, $3, regsizeSum);
+            }
+
             m_dict.DetRegMap[$6].setMappedIndex(m_dict.RegMap[$8]);
             m_dict.DetRegMap[$6].setMappedOffset(0);
             m_dict.DetRegMap[$6].setIsFloat(m_floatRegister);
@@ -293,15 +296,17 @@ a_reglist:
         // [%eax, %edx][32] -> 10..11
     |   '[' reg_table ']' '[' NUM ']' INDEX NUM TO NUM {
             if ((int)($2.size()) != ($10 - $8 + 1)) {
-                error();
+                error("Size of register table does not match range %1..%2",
+                    $8, $10);
             }
             else {
                 std::list<QString>::iterator loc = $2.begin();
                 for (int x = $8; x <= $10; x++, loc++) {
                     if (m_dict.RegMap.find(*loc) != m_dict.RegMap.end()) {
-                        error();
+                        error("Register %1 is already defined", *loc);
                     }
                     m_dict.addRegister(*loc, x, $5, m_floatRegister);
+                    assert($5 != 0);
                 }
             }
         }

@@ -104,10 +104,10 @@ void RTLInstDict::addRegister(const QString& name, int id, int size, bool flt)
     RegMap[name] = id;
 
     if (id == -1) {
-        SpecialRegMap.insert(std::make_pair(name, Register(name, size, flt)));
+        SpecialRegMap.insert({ name, Register(name, size, flt) });
     }
     else {
-        DetRegMap.insert(std::make_pair(id, Register(name, size, flt)));
+        DetRegMap.insert({ id, Register(name, size, flt) });
     }
 }
 
