@@ -9,9 +9,11 @@
 namespace ssl
 {
 
-inline void SSLParser::error()
+inline void SSLParser::error(const QString& msg)
 {
-    LOG_ERROR("Syntax error in SSLParser");
+    const int lineNr = d_scanner.lineNr();
+    LOG_ERROR("Parse error on line %1: %2", lineNr,
+        (!msg.isEmpty()) ? msg : QString("Unknown error"));
 }
 
 // $insert lex

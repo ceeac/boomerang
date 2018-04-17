@@ -49,7 +49,19 @@ class SSLParser: public SSLParserBase
         static Statement *parseExp(const char *str);
 
     private:
-        void error();                   // called on (syntax) errors
+        template<typename Arg, typename... Args>
+        void error(const QString& msg, Arg arg, Args... args)
+        {
+            error(msg.arg(arg), args...);
+        }
+
+        template<typename Arg>
+        void error(const QString& msg, Arg arg)
+        {
+            error(msg.arg(arg));
+        }
+
+        void error(const QString& msg = QString()); // called on (syntax) errors
         int lex();                      // returns the next token from the
                                         // lexical scanner.
         void print();                   // use, e.g., d_token, d_loc
