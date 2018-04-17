@@ -569,27 +569,23 @@ exp_term:
         //  $1       $2
     |   NAME_LOOKUP IDENTIFIER ']' {
             if (m_indexRefMap.find($2) == m_indexRefMap.end()) {
-                LOG_ERROR("Index '%1' not declared for use.", $2);
-                error();
+                error("Index '%1' not declared for use.", $2);
             }
             else if (m_tableDict.find($1) == m_tableDict.end()) {
-                LOG_ERROR("Table '%1 not declared for use.", $1);
-                error();
+                error("Table '%1 not declared for use.", $1);
             }
             else if (m_tableDict[$1]->getType() != EXPRTABLE) {
-                LOG_ERROR("Table %1 is not an expression table "
+                error("Table %1 is not an expression table "
                             "but appears to be used as one.", $1);
-                error();
             }
             else  {
                 auto exprTable = std::dynamic_pointer_cast<ExprTable>(m_tableDict[$1]);
                 assert(exprTable != nullptr);
 
                 if (exprTable->expressions.size() < m_indexRefMap[$2]->getNumTokens()) {
-                    LOG_ERROR("Table '%1' (size %2) is too small to use '%3' (size %4) as an index",
+                    error("Table '%1' (size %2) is too small to use '%3' (size %4) as an index",
                         ($1), exprTable->expressions.size(),
                         ($2), m_indexRefMap[$2]->getNumTokens());
-                    error();
                 }
             }
             // $1 is a map from string to Table*; $2 is a map from string to InsNameElem*
@@ -777,8 +773,7 @@ regtransfer:
                         Binary::get(opFlagCall, Const::get($1), listExpToExp($2))));
             }
             else {
-                LOG_ERROR("'%1' is not declared as a flag function.", $1);
-                error();
+                error("'%1' is not declared as a flag function.", $1);
             }
         }
     |   FLAGMACRO flag_list ')' {
@@ -832,8 +827,7 @@ assigntype:
                     char tyAbbr = typeStr[0].toLatin1();
                     tySize = typeStr.midRef(1).toInt(&ok);
                     if (!ok || tyAbbr == 0) {
-                        LOG_ERROR("Parse error: Unknown type '%1'", typeStr);
-                        error();
+                        error("Unknown type '%1'", typeStr);
                     }
 
                     switch(tyAbbr) {
@@ -910,12 +904,10 @@ name_contract:
         }
     |   NAME_LOOKUP NUM ']' {
             if (m_tableDict.find($1) == m_tableDict.end()) {
-                LOG_ERROR("Table '%1' has not been declared.", $1);
-                error();
+                error("Table '%1' has not been declared.", $1);
             }
             else if (($2 < 0) || ($2 >= (int)m_tableDict[$1]->Records.size())) {
-                LOG_ERROR("Can't get element %1 of table %2.", $2, $1);
-                error();
+                error("Can't get element %1 of table %2.", $2, $1);
             }
             else {
                 $$(std::make_shared<InsNameElem>(m_tableDict[$1]->Records[$2]));
@@ -925,8 +917,7 @@ name_contract:
         // Example: ARITH[IDX]    where ARITH := { "ADD", "SUB", ...};
     |   NAME_LOOKUP IDENTIFIER ']' {
             if (m_tableDict.find($1) == m_tableDict.end()) {
-                LOG_ERROR("Table '%1' has not been declared.", $1);
-                error();
+                error("Table '%1' has not been declared.", $1);
             }
             else {
                 $$(std::make_shared<InsListElem>($1, m_tableDict[$1], $2));
@@ -935,12 +926,10 @@ name_contract:
 
     |   '$' NAME_LOOKUP NUM ']' {
             if (m_tableDict.find($2) == m_tableDict.end()) {
-                LOG_ERROR("Table %1 has not been declared.", $2);
-                error();
+                error("Table %1 has not been declared.", $2);
             }
             else if (($3 < 0) || ($3 >= (int)m_tableDict[$2]->Records.size())) {
-                LOG_ERROR("Can't get element %1 of table '%2'.", $3, $2);
-                error();
+                error("Can't get element %1 of table '%2'.", $3, $2);
             }
             else {
                 $$(std::make_shared<InsNameElem>(m_tableDict[$2]->Records[$3]));
@@ -948,8 +937,7 @@ name_contract:
         }
     |   '$' NAME_LOOKUP IDENTIFIER ']' {
             if (m_tableDict.find($2) == m_tableDict.end()) {
-                LOG_ERROR("Table '%1' has not been declared.", $2);
-                error();
+                error("Table '%1' has not been declared.", $2);
             }
             else {
                 $$(std::make_shared<InsListElem>($2, m_tableDict[$2], $3));
