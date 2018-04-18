@@ -101,6 +101,7 @@ bool RTLInstDict::readSSLFile(const QString& SSLFileName)
 
 void RTLInstDict::addRegister(const QString& name, int id, int size, bool flt)
 {
+    assert(size > 0);
     RegMap[name] = id;
 
     if (id == -1) {

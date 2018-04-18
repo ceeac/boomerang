@@ -220,15 +220,13 @@ a_reglist:
                 error("Register '$1' is already defined.", $1);
             }
 
-            m_dict.addRegister($1, $6, 0, m_floatRegister);
-
-            // Now for detailed Reg information
-            if (m_dict.DetRegMap.find($6) != m_dict.DetRegMap.end()) {
-                error("Register index %1 already in use.", $6);
+            auto it = m_dict.DetRegMap.find($6);
+            if (it != m_dict.DetRegMap.end()) {
+                error("Register index %1 is already mapped to by register %2",
+                    $6, it->second.getName());
             }
 
-            m_dict.DetRegMap[$6].setName($1);
-            m_dict.DetRegMap[$6].setSize($3);
+            m_dict.addRegister($1, $6, $3, m_floatRegister);
 
             // check range is legitimate for size. 8,10
             if (!m_dict.isRegDefined($8)) {
@@ -244,7 +242,7 @@ a_reglist:
             const int regRangeEnd   = m_dict.getRegIndex($10);
 
             int regsizeSum = 0;
-            for (int i = regRangeStart; i != regRangeEnd+1; i++) {
+            for (int i = regRangeStart; i <= regRangeEnd; i++) {
                 if (m_dict.DetRegMap.find(i) == m_dict.DetRegMap.end()) {
                     error("Invalid range %1..%2: Index %3 is not mapped to a register",
                         regRangeStart, regRangeEnd, i);
@@ -300,15 +298,13 @@ a_reglist:
                 error("Size of register table does not match range %1..%2",
                     $8, $10);
             }
-            else {
-                std::list<QString>::iterator loc = $2.begin();
-                for (int x = $8; x <= $10; x++, loc++) {
-                    if (m_dict.isRegDefined(*loc)) {
-                        error("Register %1 is already defined", *loc);
-                    }
-                    m_dict.addRegister(*loc, x, $5, m_floatRegister);
-                    assert($5 != 0);
+
+            std::list<QString>::iterator loc = $2.begin();
+            for (int idx = $8; idx <= $10; idx++, loc++) {
+                if (m_dict.isRegDefined(*loc)) {
+                    error("Register %1 is already defined", *loc);
                 }
+                m_dict.addRegister(*loc, idx, $5, m_floatRegister);
             }
         }
         // [%eax, %edx][32] -> -1
@@ -327,9 +323,9 @@ reg_table:
             $$();
             $$.push_back($1);
         }
-    |   REG_IDENTIFIER ',' reg_table {
-            $3.push_back($1);
-            $$($3);
+    |   reg_table ',' REG_IDENTIFIER {
+            $1.push_back($3);
+            $$($1);
         }
     ;
 
