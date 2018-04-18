@@ -406,6 +406,10 @@ SharedExp SSLParser::listExpToExp(const std::deque<SharedExp>& le)
     SharedExp *cur = &e;
     SharedExp end  = Terminal::get(opNil); // Terminate the chain
 
+    if (le.empty()) {
+        return end;
+    }
+
     for (const auto& elem : le) {
         *cur = Binary::get(opList, elem, end);
         // cur becomes the address of the address of the second subexpression
