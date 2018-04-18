@@ -18,7 +18,7 @@
 #include <QDebug>
 
 
-#define SPARC_SSL    (Boomerang::get()->getSettings()->getDataDirectory().absoluteFilePath("ssl/sparc.ssl"))
+#define SSL_FILE(path) (Boomerang::get()->getSettings()->getDataDirectory().absoluteFilePath(path))
 
 
 void ParserTest::initTestCase()
@@ -38,7 +38,13 @@ void ParserTest::testRead()
 {
     RTLInstDict d;
 
-    QVERIFY(d.readSSLFile(SPARC_SSL));
+    QVERIFY(d.readSSLFile(SSL_FILE("ssl/hppa.ssl")));
+    QVERIFY(d.readSSLFile(SSL_FILE("ssl/mc68k.ssl")));
+    QVERIFY(d.readSSLFile(SSL_FILE("ssl/mips.ssl")));
+    QVERIFY(d.readSSLFile(SSL_FILE("ssl/pentium.ssl")));
+    QVERIFY(d.readSSLFile(SSL_FILE("ssl/ppc.ssl")));
+    QVERIFY(d.readSSLFile(SSL_FILE("ssl/sparc.ssl")));
+    QVERIFY(d.readSSLFile(SSL_FILE("ssl/st20.ssl")));
 }
 
 
