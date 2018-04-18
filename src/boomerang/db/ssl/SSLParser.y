@@ -7,8 +7,8 @@
  */
 
 // options
-//%debug
-//%print-tokens
+%debug
+%print-tokens
 %error-verbose
 
 %class-name SSLParser
@@ -129,9 +129,9 @@ ssl_specs:
     ;
 
 ssl_spec:
-        endianness      // Optional one-line section declaring endianness
-    |   const_def       // Name := value
-    |   register_def    // Definition of register(s)
+        KW_ENDIANNESS endianness  // Optional one-line section declaring endianness
+    |   const_def                 // Name := value
+    |   register_def              // Definition of register(s)
     |   table_def
         // Declaration of "flag functions". These describe the detailed flag setting semantics for instructions
     |   flagfunc_def
@@ -147,10 +147,10 @@ ssl_spec:
     ;
 
 endianness:
-        KW_ENDIANNESS KW_BIG {
+        KW_BIG {
             m_dict.m_bigEndian = Endian::Big;
         }
-    |   KW_ENDIANNESS KW_LITTLE {
+    |   KW_LITTLE {
             m_dict.m_bigEndian = Endian::Little;
         }
     ;
@@ -265,27 +265,25 @@ a_reglist:
             if (m_dict.isRegDefined($1)) {
                 error("Register %1 is already defined", $1);
             }
-
-            m_dict.addRegister($1, $6, 0, m_floatRegister);
-
-            // Now for detailed Reg information
-            if (m_dict.DetRegMap.find($6) != m_dict.DetRegMap.end()) {
+            else if (m_dict.DetRegMap.find($6) != m_dict.DetRegMap.end()) {
                 error("Register index %1 is already defined", $6);
             }
 
-            m_dict.DetRegMap[$6].setName($1);
-            m_dict.DetRegMap[$6].setSize($3);
+            m_dict.addRegister($1, $6, $3, m_floatRegister);
 
             // Do checks
             if ($3 != ($13 - $11) + 1) {
-                error();
+                error("Shared register size mismatch: Register %1 is %2 bits, "
+                    "but shares %3 bits with register %4", $1, $3, ($13 - $11) + 1, $8);
             }
 
             if (!m_dict.isRegDefined($8)) {
                 error("Register %1 is not defined.", $8);
             }
             else if ($13 >= m_dict.DetRegMap[m_dict.getRegIndex($8)].getSize()) {
-                error();
+                error("Shared register index mismatch: Index range %1..%2 not valid "
+                    "for register %3 of size %4 bits", $11, $13, $8,
+                    m_dict.DetRegMap[m_dict.getRegIndex($8)].getSize());
             }
 
             m_dict.DetRegMap[$6].setMappedIndex(m_dict.RegMap[$8]);
@@ -407,11 +405,11 @@ name_expand:
                 if (m_tableDict[$2]->getType() == NAMETABLE)
                     $$(m_tableDict[$2]->Records);
                 else {
-                    error();
+                    error("Table %1 is not a name table but appears to be used as one.", $2);
                 }
             }
             else {
-                error();
+                error("Table %1 not defined", $2);
             }
         }
     |   IDENTIFIER {
@@ -422,7 +420,7 @@ name_expand:
                     $$(m_tableDict[$1]->Records);
                 }
                 else {
-                    error();
+                    error("Table %1 is not a name table but appears to be used as one.", $1);
                 }
             }
             else {
@@ -508,16 +506,18 @@ exp:
         //$1     $2      $3        $4   $5
     |   exp NAME_LOOKUP IDENTIFIER ']' exp_term %prec LOOKUP_RDC {
             if (m_indexRefMap.find($3) == m_indexRefMap.end()) {
-                error();
+                error("Undefined table index %1 encountered", $3);
             }
             else if (m_tableDict.find($2) == m_tableDict.end()) {
-                error();
+                error("Undefined table %1 encountered", $2);
             }
             else if (m_tableDict[$2]->getType() != OPTABLE) {
-                error();
+                error("Table %1 is not an operator table but appears to be used as one.", $2);
             }
             else if (m_tableDict[$2]->Records.size() < m_indexRefMap[$3]->getNumTokens()) {
-                error();
+                error("Table index size mismatch: Table %1 has size %2, but index %3 has size %4",
+                    $2, m_tableDict[$2]->Records.size(),
+                    $3, m_indexRefMap[$3]->getNumTokens());
             }
 
             $$(Ternary::get(opOpTable, Const::get($2), Const::get($3),
@@ -592,24 +592,22 @@ exp_term:
         // $1 is the "function" name, and $2 is a list of Exp* for the actual params.
         // I believe only PA/RISC uses these so far.
     |   NAME_CALL list_actualparameter ')' {
-            if (m_dict.ParamSet.find($1) != m_dict.ParamSet.end() ) {
-                if (m_dict.DetParamMap.find($1) != m_dict.DetParamMap.end()) {
-                    ParamEntry& param = m_dict.DetParamMap[$1];
-                    if ($2.size() != param.m_funcParams.size() ) {
-                        error();
-                    }
-                    else {
-                        // Everything checks out. *phew*
-                        // Note: the below may not be right! (MVE)
-                        $$(Binary::get(opFlagDef, Const::get($1), listExpToExp($2)));
-                    }
-                }
-                else {
-                    error();
-                }
+            if (m_dict.ParamSet.find($1) == m_dict.ParamSet.end() ) {
+                error("Function %1 not found in ParamSet", $1);
+            }
+
+            if (m_dict.DetParamMap.find($1) == m_dict.DetParamMap.end()) {
+                error("Function $1 not found in DetParamMap", $1);
+            }
+
+            ParamEntry& param = m_dict.DetParamMap[$1];
+            if ($2.size() != param.m_funcParams.size() ) {
+                error("Parameter count mismatch");
             }
             else {
-                error();
+                // Everything checks out. *phew*
+                // Note: the below may not be right! (MVE)
+                $$(Binary::get(opFlagDef, Const::get($1), listExpToExp($2)));
             }
         }
 
@@ -669,7 +667,7 @@ location:
                 s = Const::get(m_constTable[$1]); // TODO ???
             }
             else {
-                error();
+                error("Undefined identifier %1 encountered", $1);
                 s = Const::get(0);
             }
 
@@ -740,7 +738,7 @@ rt_list:
         rt_list regtransfer {
             // append any automatically generated register transfers and clear the list they were stored in.
             // Do nothing for a NOP (i.e. $2 = 0)
-            if ($2 != NULL) {
+            if ($2 != nullptr) {
                 $1->append($2);
             }
             $$($1);

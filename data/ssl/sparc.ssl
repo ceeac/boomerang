@@ -220,6 +220,7 @@ OPERAND
 #LOADD := { LDD_, LDDA_ }
 LDD      eaddr, rd                      *32* rd := m[eaddr]
                                         *32* succ(rd) := m[eaddr + WORD]; 
+
 # Note: the above offset (WORD) is now in bytes!
 
 #LOADU := { LD_, LDA_ }
