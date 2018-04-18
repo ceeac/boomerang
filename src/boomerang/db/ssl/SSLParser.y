@@ -55,7 +55,11 @@
 %token KW_OPERAND
 %token KW_COVERS KW_SHARES KW_FAST
 %token KW_FPOP KW_FPUSH
+
+// builtin functions
 %token KW_SUCCESSOR
+%token KW_ADDR
+
 
 // types & variables
 %token <str> IDENTIFIER     // name of a variable
@@ -71,7 +75,6 @@
 %token <str> TEMP CONV_FUNC TRUNC_FUNC TRANSCEND FABS_FUNC
 %token <str> NAME_LOOKUP
 %token FLAGMACRO
-%token ADDR
 
 // operators
 %token INDEX
@@ -547,7 +550,7 @@ exp_term:
     |   location    { $$($1); }
     |   '[' exp '?' exp COLON exp ']' { $$(Ternary::get(opTern, $2, $4, $6)); }
         // Address-of, for LEA type instructions
-    |   ADDR exp ')' { $$(Unary::get(opAddrOf, $2)); }
+    |   KW_ADDR '(' exp ')' { $$(Unary::get(opAddrOf, $3)); }
 
         // Conversion functions, e.g. fsize(32, 80, modrm). Args are FROMsize, TOsize, EXPression
     |   CONV_FUNC NUM ',' NUM ',' exp ')' {
@@ -731,7 +734,7 @@ regtransfer:
         assign_regtransfer { $$($1); }
 
         // Example: ADDFLAGS(r[tmp], reg_or_imm, r[rd])
-        // $1              $2          $3
+        // $1       $2          $3          $4
     |   IDENTIFIER '(' list_actualparameter ')' {
             if (m_dict.FlagFuncs.find($1) == m_dict.FlagFuncs.end()) {
                 error("Flag function '%1' is not defined", $1);

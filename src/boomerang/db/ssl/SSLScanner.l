@@ -48,7 +48,9 @@
 "FPUSH"     {    return ssl::SSLParser::KW_FPUSH; }
 
 
+// built-in functions
 "succ"     { return ssl::SSLParser::KW_SUCCESSOR; }
+"addr"     { return ssl::SSLParser::KW_ADDR; }
 
 
 "*"[a-z]?[0-9]*"*" {
@@ -132,7 +134,6 @@
 ":"     { return ssl::SSLParser::COLON; }
 "!"     { return ssl::SSLParser::S_E;   }
 "@"     { return ssl::SSLParser::AT;    }
-"addr(" { return ssl::SSLParser::ADDR;  }
 
 "fsize("    |
 "itof("     |
