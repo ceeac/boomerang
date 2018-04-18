@@ -48,6 +48,9 @@
 "FPUSH"     {    return ssl::SSLParser::KW_FPUSH; }
 
 
+"succ"     { return ssl::SSLParser::KW_SUCCESSOR; }
+
+
 "*"[a-z]?[0-9]*"*" {
         *d_val = QString(matched().c_str());
         return ssl::SSLParser::ASSIGNTYPE;
@@ -169,9 +172,6 @@
         *d_val = QString(matched().c_str()).left(matched().length()-1);
         return ssl::SSLParser::TRANSCEND;
     }
-
-"succ("     { return ssl::SSLParser::SUCCESSOR; }
-
 "tmp"[a-zA-Z0-9_]* {
         *d_val = QString(matched().c_str());
         return ssl::SSLParser::TEMP;
@@ -193,11 +193,7 @@ _?[A-Za-z][A-Za-z0-9_]* {
         *d_val = QString(matched().c_str());
         return ssl::SSLParser::REG_IDENTIFIER;
     }
-_?[A-Za-z][A-Za-z0-9_]*"(" {
-        // chop off trailing paren
-        *d_val = QString(matched().c_str()).left(matched().length()-1);
-        return ssl::SSLParser::NAME_CALL;
-    }
+
 _?[A-Za-z][A-Za-z0-9_]*"[" {
         // chop off trailing bracket
         *d_val = QString(matched().c_str()).left(matched().length()-1);

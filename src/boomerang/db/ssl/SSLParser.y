@@ -7,8 +7,8 @@
  */
 
 // options
-%debug
-%print-tokens
+//%debug
+//%print-tokens
 %error-verbose
 
 %class-name SSLParser
@@ -55,7 +55,7 @@
 %token KW_OPERAND
 %token KW_COVERS KW_SHARES KW_FAST
 %token KW_FPOP KW_FPUSH
-
+%token KW_SUCCESSOR
 
 // types & variables
 %token <str> IDENTIFIER     // name of a variable
@@ -69,8 +69,8 @@
 %token <str> ASSIGNTYPE
 %token <str> REG_NUM DECOR
 %token <str> TEMP CONV_FUNC TRUNC_FUNC TRANSCEND FABS_FUNC
-%token <str> NAME_CALL NAME_LOOKUP
-%token FLAGMACRO SUCCESSOR
+%token <str> NAME_LOOKUP
+%token FLAGMACRO
 %token ADDR
 
 // operators
@@ -589,33 +589,6 @@ exp_term:
             // $1 is a map from string to Table*; $2 is a map from string to InsNameElem*
             $$(Binary::get(opExpTable, Const::get($1), Const::get($2)));
         }
-
-        // This is a "lambda" function-like parameter
-        // $1 is the "function" name, and $2 is a list of Exp* for the actual params.
-        // I believe only PA/RISC uses these so far.
-    |   NAME_CALL list_actualparameter ')' {
-            if (m_dict.ParamSet.find($1) == m_dict.ParamSet.end() ) {
-                error("Function %1 not found in ParamSet", $1);
-            }
-
-            if (m_dict.DetParamMap.find($1) == m_dict.DetParamMap.end()) {
-                error("Function $1 not found in DetParamMap", $1);
-            }
-
-            ParamEntry& param = m_dict.DetParamMap[$1];
-            if ($2.size() != param.m_funcParams.size() ) {
-                error("Parameter count mismatch");
-            }
-            else {
-                // Everything checks out. *phew*
-                // Note: the below may not be right! (MVE)
-                $$(Binary::get(opFlagDef, Const::get($1), listExpToExp($2)));
-            }
-        }
-
-    |   SUCCESSOR exp ')' {
-            $$(makeSuccessor($2));
-        }
     ;
 
 location:
@@ -684,12 +657,8 @@ location:
             $$(Location::tempOf(Const::get($1)));
         }
 
-        // This indicates a post-instruction marker (var tick)
-    |   location '\'' {
-            $$(Unary::get(opPostVar, $1));
-        }
-    |   SUCCESSOR exp ')' {
-            $$(makeSuccessor($2));
+    |   KW_SUCCESSOR '(' exp ')' {
+            $$(makeSuccessor($3));
         }
     ;
 
@@ -707,10 +676,14 @@ list_actualparameter:
 
 // Flag definitions
 flagfunc_def:
-        // $1       $2      $3  $4    $5    $6
-        NAME_CALL paramlist ')' '{' rt_list '}' {
-            // Note: $2 is a list of strings
-            m_dict.FlagFuncs[$1] = std::make_shared<FlagDef>(listStrToExp($2), $5);
+        // $1       $2    $3     $4   $5   $6    $7
+        IDENTIFIER '(' paramlist ')' '{' rt_list '}' {
+            if (m_dict.FlagFuncs.find($1) != m_dict.FlagFuncs.end()) {
+                error("Flag function %1 is already defined", $1);
+            }
+
+            // Note: $3 is a list of strings
+            m_dict.FlagFuncs[$1] = std::make_shared<FlagDef>(listStrToExp($3), $6);
         }
     ;
 
@@ -759,18 +732,18 @@ regtransfer:
 
         // Example: ADDFLAGS(r[tmp], reg_or_imm, r[rd])
         // $1              $2          $3
-    |   NAME_CALL list_actualparameter ')' {
-            if (m_dict.FlagFuncs.find($1) != m_dict.FlagFuncs.end()) {
-                // Note: SETFFLAGS assigns to the floating point flags. All others to the integer flags
-                const bool floatFlags = (QString($1) == "SETFFLAGS");
-                const OPER op = floatFlags ? opFflags : opFlags;
+    |   IDENTIFIER '(' list_actualparameter ')' {
+            if (m_dict.FlagFuncs.find($1) == m_dict.FlagFuncs.end()) {
+                error("Flag function '%1' is not defined", $1);
+            }
 
-                $$(new Assign(Terminal::get(op),
-                        Binary::get(opFlagCall, Const::get($1), listExpToExp($2))));
-            }
-            else {
-                error("'%1' is not declared as a flag function.", $1);
-            }
+            // Note: SETFFLAGS assigns to the floating point flags. All others to the integer flags
+            const bool floatFlags = (QString($1) == "SETFFLAGS");
+            const OPER op = floatFlags ? opFflags : opFlags;
+
+            $$(new Assign(Terminal::get(op),
+                    Binary::get(opFlagCall, Const::get($1), listExpToExp($3))));
+
         }
     |   FLAGMACRO flag_list ')' {
             $$(nullptr);
