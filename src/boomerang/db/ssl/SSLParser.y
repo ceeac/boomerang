@@ -272,7 +272,7 @@ a_reglist:
 
             // Now for detailed Reg information
             if (m_dict.DetRegMap.find($6) != m_dict.DetRegMap.end()) {
-                error();
+                error("Register index %1 is already defined", $6);
             }
 
             m_dict.DetRegMap[$6].setName($1);
