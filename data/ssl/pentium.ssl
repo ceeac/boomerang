@@ -18,18 +18,22 @@
 # 20 Jul 04 - Mike: Fixed FISUB, FISUBR
 # 01 Jul 05 - Mike: FIMUL, FIADD.i64 -> .i16
 
+
+ENDIANNESS LITTLE;
+
 # Constants
-MAX8BITS  := 2**8  - 1;
-MAX16BITS := 2**16 - 1;
-MAX32BITS := 2**32 - 1;
-MAX8POS   := 0x7F;
-MAX8NEG   := 0x80;
-MAX16POS  := 0x7FFF;
-MAX16NEG  := 0x8000;
-MAX32POS  := 0x7FFFFFFF;
-MAX32NEG  := 0x80000000;
+CONST MAX8BITS  := 2**8  - 1;
+CONST MAX16BITS := 2**16 - 1;
+CONST MAX32BITS := 2**32 - 1;
+CONST MAX8POS   := 0x7F;
+CONST MAX8NEG   := 0x80;
+CONST MAX16POS  := 0x7FFF;
+CONST MAX16NEG  := 0x8000;
+CONST MAX32POS  := 0x7FFFFFFF;
+CONST MAX32NEG  := 0x80000000;
 
 
+#registers
 INTEGER
 [ %eax, %ecx, %edx, %ebx, %esp, %ebp, %esi, %edi ][32] -> 24..31,
 %ax[16] -> 0 SHARES %eax@[0..15],
@@ -62,6 +66,7 @@ FLOAT
 [ %st, %st1,        # stack head, stack neck
   %st2, %st3, %st4, %st5, %st6, %st7 ][80] -> 32..39;
 
+
 INTEGER
 # Note: for boomerang, we use the abstract floating point flags %fflags now
 %fsw[16] -> 40, #Float status word(16 Bit register Containing information about
@@ -77,6 +82,7 @@ INTEGER
                 #precision control and exception masks.
 
 
+# flag funcs
 ADDFLAGS8(op1, op2, result)  {
             *1* %CF := ((op1@[7:7]) & (op2@[7:7]))
                         | (~(result@[7:7]) & ((op1@[7:7]) | (op2@[7:7])))
@@ -296,6 +302,8 @@ SETFFLAGS(op1, op2)  {
             *1* %C2 := 0 # [ (op1 > op2) ? 1 : 0]
 };
 
+
+# instructions
 OP1 := { "+", "-" };
 ARIT := { "ADD", "SUB" };
 

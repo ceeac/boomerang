@@ -2,9 +2,9 @@
 # RTL description for ST20
 #
 
-MAXSIGN32   := 2**31 - 1;    # all bits except sign bit are set
-SIGN_32_NEG := -2**31;
-INF := 0x7F800000;
+CONST MAXSIGN32   := 2**31 - 1;    # all bits except sign bit are set
+CONST SIGN_32_NEG := -2**31;
+CONST INF := 0x7F800000;
 
 INTEGER
 [ %Areg, %Breg, %Creg ][32] -> 0..2,

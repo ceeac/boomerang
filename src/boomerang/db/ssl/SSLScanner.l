@@ -30,21 +30,16 @@
 
 %%
 
+"ENDIANNESS"    { return ssl::SSLParser::KW_ENDIANNESS; }
+"BIG"           { return ssl::SSLParser::KW_BIG; }
+"LITTLE"        { return ssl::SSLParser::KW_LITTLE; }
+
+"CONST"         { return ssl::SSLParser::KW_CONST; }
+
 "INTEGER"       { return ssl::SSLParser::KW_INTEGER; }
 "FLOAT"         { return ssl::SSLParser::KW_FLOAT; }
+
 "OPERAND"       { return ssl::SSLParser::KW_OPERAND; }
-"ENDIANNESS"    {
-        *d_val = QString(matched().c_str());
-        return ssl::SSLParser::KW_ENDIANNESS;
-    }
-"BIG"           {
-        *d_val = QString(matched().c_str());
-        return ssl::SSLParser::KW_BIG;
-    }
-"LITTLE"        {
-        *d_val = QString(matched().c_str());
-        return ssl::SSLParser::KW_LITTLE;
-    }
 "COVERS"        { return ssl::SSLParser::KW_COVERS; }
 "SHARES"        { return ssl::SSLParser::KW_SHARES; }
 "FAST"          { return ssl::SSLParser::KW_FAST; }

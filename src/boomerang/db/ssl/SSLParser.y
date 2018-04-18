@@ -49,8 +49,9 @@
 
 
 // keywords
-%token KW_INTEGER KW_FLOAT KW_ENDIANNESS
-%token KW_BIG KW_LITTLE
+%token KW_ENDIANNESS KW_BIG KW_LITTLE
+%token KW_CONST
+%token KW_INTEGER KW_FLOAT
 %token KW_OPERAND
 %token KW_COVERS KW_SHARES KW_FAST
 %token KW_FPOP KW_FPUSH
@@ -130,15 +131,16 @@ ssl_specs:
 
 ssl_spec:
         KW_ENDIANNESS endianness  // Optional one-line section declaring endianness
-    |   const_def                 // Name := value
-    |   register_def              // Definition of register(s)
+    |   KW_CONST const_def        // CONST Name := value
+    |   register_def              // Definition of integer/float register(s)
     |   table_def
-        // Declaration of "flag functions". These describe the detailed flag setting semantics for instructions
+        // Flag functions describe detailed flag setting semantics for instructions
     |   flagfunc_def
     |   instruction_def
 
-        // Optional section describing faster versions of instructions (e.g. that don't inplement the full
-        // specifications, but if they work, will be much faster)
+        // Optional section describing faster versions of instructions
+        // (e.g. that don't inplement the full specifications,
+        // but if they work, will be much faster)
     |   KW_FAST fastlist
 
         // Addressing modes (or instruction operands) (optional)

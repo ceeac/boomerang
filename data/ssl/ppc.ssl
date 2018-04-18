@@ -15,14 +15,15 @@
 # PPC RTL
 # --------------------------------------------------------------------------
 
-
-MAX_BYTE    := 2**8  - 1;    # a byte of all 1's
-MAX32BIT    := 0xFFFFFFFF;    # a word of all 1's
-MAXSIGN32   := 0x7FFFFFFF;    # all bits except sign bit are set
-SIGN_32_NEG := -2**31;
-WORD        := 4;            # size of word in bytes (for now)
-
 ENDIANNESS BIG;
+
+
+CONST MAX_BYTE    := 2**8  - 1;    # a byte of all 1's
+CONST MAX32BIT    := 0xFFFFFFFF;    # a word of all 1's
+CONST MAXSIGN32   := 0x7FFFFFFF;    # all bits except sign bit are set
+CONST SIGN_32_NEG := -2**31;
+CONST WORD        := 4;            # size of word in bytes (for now)
+
 
 # register mapping
 # normal registers have a mapping to a Cardinal
@@ -49,6 +50,7 @@ INTEGER
 [ %LR, %CTR, %XER] [32] -> -1;   #link register, counter register
 
 
+# flag funcs
 SETXER(value) {
     *32* %XER := value
     *1* %XERCA := %XER@[29:29]

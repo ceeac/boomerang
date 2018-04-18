@@ -64,8 +64,8 @@ INTEGER
     %pc[32]  -> -1,
     %npc[32] -> -1,
     %sar[32] -> 267;         # Shift amount register (%cr11)
-FLOAT
 
+FLOAT
 # Floating point quad registers
     %fq0 [128] -> 128,
     %fq2 [128] -> 130,

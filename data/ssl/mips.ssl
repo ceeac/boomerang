@@ -23,14 +23,15 @@
 # RTL for MIPS
 #
 
-
-MAX_BYTE    := 2**8  - 1;    # a byte of all 1's
-MAX32BIT    := 0xFFFFFFFF - 1;    # a word of all 1's
-MAXSIGN32   := 2**31 - 1;    # all bits except sign bit are set
-SIGN_32_NEG := -2**31;
-WORD        := 4;            # size of word in bytes (for now)
-
 ENDIANESS BIG;
+
+
+CONST MAX_BYTE    := 2**8  - 1;    # a byte of all 1's
+CONST MAX32BIT    := 0xFFFFFFFF - 1;    # a word of all 1's
+CONST MAXSIGN32   := 2**31 - 1;    # all bits except sign bit are set
+CONST SIGN_32_NEG := -2**31;
+CONST WORD        := 4;            # size of word in bytes (for now)
+CONST SP := 29;
 
 # register mapping
 # normal registers have a mapping to a Cardinal
@@ -54,7 +55,6 @@ INTEGER
 [ %pc][32] -> -1, # Program Counter
 [ %HI, %LO] [32] -> -1;   #HI and LO special registers.
 
-#SP := 29;
 
 NOP
                 _ ;
