@@ -14,7 +14,7 @@ add_custom_command(
         ${CMAKE_CURRENT_SOURCE_DIR}/ssl/SSLScanner.h
         ${CMAKE_CURRENT_SOURCE_DIR}/ssl/SSLScannerBase.h
     COMMAND
-        flexc++ "${CMAKE_CURRENT_SOURCE_DIR}/ssl/SSLScanner.l"
+        ${FlexCPP_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/ssl/SSLScanner.l"
     DEPENDS
         "${CMAKE_CURRENT_SOURCE_DIR}/ssl/SSLScanner.l"
     WORKING_DIRECTORY
@@ -28,7 +28,7 @@ add_custom_command(
         ${CMAKE_CURRENT_SOURCE_DIR}/ssl/SSLParser.h
         ${CMAKE_CURRENT_SOURCE_DIR}/ssl/SSLParserBase.h
     COMMAND
-        bisonc++ "${CMAKE_CURRENT_SOURCE_DIR}/ssl/SSLParser.y"
+        ${BisonCPP_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/ssl/SSLParser.y"
     DEPENDS
         "${CMAKE_CURRENT_SOURCE_DIR}/ssl/SSLParser.y"
     WORKING_DIRECTORY

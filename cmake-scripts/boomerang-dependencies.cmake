@@ -18,3 +18,6 @@ if (Qt5Xml_FOUND)
 endif (Qt5Xml_FOUND)
 
 find_package(Threads)
+
+find_package(FlexCPP REQUIRED)
+find_package(BisonCPP REQUIRED)
