@@ -41,6 +41,14 @@ add_custom_target(generateSSLScanner ALL DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/ss
 add_custom_target(generateSSLParser  ALL DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/ssl/SSLParser.cpp")
 
 
+# build parsers also during configuration
+execute_process(
+    COMMAND ${FlexCPP_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/ssl/SSLScanner.l"
+    COMMAND ${BisonCPP_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/ssl/SSLParser.y"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/ssl"
+)
+
+
 list(APPEND boomerang-db-sources
     db/BasicBlock
     db/CFG
