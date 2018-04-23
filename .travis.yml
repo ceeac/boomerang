@@ -20,6 +20,8 @@ matrix:
           packages:
             - qt5-default
             - clang-4.0
+            - flexc++
+            - bisonc++
       env:
         - JOBNAME="Clang4 Debug"
         - BOOMERANG_CMAKE_OPTS="-DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=clang-4.0 -DCMAKE_CXX_COMPILER=clang++-4.0 -DBOOMERANG_BUILD_UNIT_TESTS=ON"
@@ -34,6 +36,8 @@ matrix:
           packages:
             - qt5-default
             - clang-5.0
+            - flexc++
+            - bisonc++
       env:
         - JOBNAME="Clang5 Release"
         - BOOMERANG_CMAKE_OPTS="-DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang-5.0 -DCMAKE_CXX_COMPILER=clang++-5.0 -DBOOMERANG_BUILD_UNIT_TESTS=ON"
@@ -49,6 +53,8 @@ matrix:
             - qt5-default
             - g++-6
             - lcov
+            - flexc++
+            - bisonc++
       env:
         - JOBNAME="GCC6 Debug + CodeCov"
         - BOOMERANG_CMAKE_OPTS="-DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=gcc-6 -DCMAKE_CXX_COMPILER=g++-6 -DBOOMERANG_BUILD_UNIT_TESTS=ON -DBOOMERANG_ENABLE_COVERAGE=ON"
@@ -70,6 +76,8 @@ matrix:
           packages:
             - qt5-default
             - g++-7
+            - flexc++
+            - bisonc++
       env:
         - JOBNAME="GCC7 Release"
         - BOOMERANG_CMAKE_OPTS="-DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=gcc-7 -DCMAKE_CXX_COMPILER=g++-7 -DBOOMERANG_BUILD_UNIT_TESTS=ON"
