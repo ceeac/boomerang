@@ -76,12 +76,6 @@ bool RTLInstDict::readSSLFile(const QString& SSLFileName)
     // Attempt to parse the SSL file
     ssl::SSLParser theParser(*this, SSLFileName);
 
-#ifdef DEBUG_SSLPARSER
-    theParser.setDebug(ssl::SSLParser::ON | ssl::SSLParser::ACTIONCASES);
-#else
-    theParser.setDebug(ssl::SSLParser::OFF);
-#endif
-
     addRegister("%CTI", -1, 1, false);
     addRegister("%NEXT", -1, 32, false);
 
