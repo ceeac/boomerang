@@ -19,5 +19,5 @@ endif (Qt5Xml_FOUND)
 
 find_package(Threads)
 
-find_package(FlexCPP 2.00.00 REQUIRED)
-find_package(BisonCPP 6.00.00 REQUIRED)
+find_package(FlexCPP 2.03.00 REQUIRED)
+find_package(BisonCPP 4.13.00 REQUIRED)
