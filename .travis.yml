@@ -8,6 +8,9 @@ addons:
   apt:
     update: false
 
+branches:
+  except:
+    - circleci
 
 install:
   - docker run -d --name build-env -v $(pwd):/home/boomerang/boomerang/ -v /home/travis/.ccache/:/home/boomerang/.ccache ceeac/boomerang-build-env:$TARGET tail -f /dev/null

@@ -1,0 +1,9 @@
+version: 2.0
+jobs:
+  build:
+    docker:
+      - image: ceeac/boomerang-build-env:clang7-release
+    steps:
+      - checkout
+      - run: |
+          cd ~/project && mkdir build && cd build && cmake -DBOOMERANG_BUILD_UNIT_TESTS=ON .. && make -j$(nproc) && make test

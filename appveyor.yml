@@ -21,6 +21,7 @@ configuration:
 branches:
   except:
     - gh-pages
+    - circleci
 
 skip_commits:
   message: /\[[aA]ppveyor [sS]kip\]/
