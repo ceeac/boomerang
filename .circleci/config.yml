@@ -4,6 +4,7 @@ jobs:
     docker:
       - image: ceeac/boomerang-build-env:gcc8-debug-cov
     steps:
+      - checkout
       - run: |
           cd ~/project && mkdir build && cd build &&
           cmake -DCMAKE_BUILD_TYPE=Debug -DBOOMERANG_BUILD_UNIT_TESTS=ON -DBOOMERANG_BUILD_REGRESSION_TESTS=OFF -DBOOMERANG_ENABLE_COVERAGE=ON .. &&
@@ -18,6 +19,7 @@ jobs:
     docker:
       - image: ceeac/boomerang-build-env:gcc8-regress-cov
     steps:
+      - checkout
       - run: |
           cd ~/project && mkdir build && cd build &&
           cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBOOMERANG_BUILD_UNIT_TESTS=OFF -DBOOMERANG_BUILD_REGRESSION_TESTS=ON -DBOOMERANG_ENABLE_COVERAGE=ON .. &&
