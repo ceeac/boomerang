@@ -13,7 +13,7 @@ jobs:
       - run: |
           lcov --directory . --capture --output-file coverage.info &&
           lcov -r coverage.info '*.l' '/usr/*' '*/tests/unit-tests/*' --output-file coverage.info &&
-          lcov --list coverage.info"
+          lcov --list coverage.info
           echo "Uploading CodeCov reports" && bash <(curl -s https://codecov.io/bash) -X gcov -X coveragepy -X xcode -F unittests -s "$(pwd)" || echo \"CodeCov coverage report generation failed!\"
 
   "gcc8-regress-cov":
@@ -29,7 +29,7 @@ jobs:
       - run: |
           lcov --directory . --capture --output-file coverage.info &&
           lcov -r coverage.info '*.l' '/usr/*' '*/tests/unit-tests/*' --output-file coverage.info &&
-          lcov --list coverage.info"
+          lcov --list coverage.info
           echo "Uploading CodeCov reports" && bash <(curl -s https://codecov.io/bash) -X gcov -X coveragepy -X xcode -F regresstests -s "$(pwd)" || echo \"CodeCov coverage report generation failed!\"
 
   "gcc7-release":
