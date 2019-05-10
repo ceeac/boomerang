@@ -1,5 +1,16 @@
 version: 2.0
 jobs:
+  "macOS":
+    macos:
+      xcode: "10.0.0"
+    steps:
+      - checkout
+      - run: |
+          HOMEBREW_NO_INSTALL_CLEANUP=1 HOMEBREW_NO_AUTO_UPDATE=1 brew install qt capstone bison flex ccache
+          mkdir build && cd build
+          cmake -DQt5_DIR=$(brew --prefix qt5)/lib/cmake/Qt5/ -DFLEX_EXECUTABLE=$(brew --prefix flex)/bin/flex -DBISON_EXECUTABLE=$(brew --prefix bison)/bin/bison -DBOOMERANG_BUILD_UNIT_TESTS=ON ..
+          make -j2 && make test
+
   "gcc8-debug-cov":
     docker:
       - image: ceeac/boomerang-build-env:gcc8-debug-cov
@@ -77,6 +88,7 @@ workflows:
   version: 2
   build:
     jobs:
+     - "macOS"
      - "gcc8-debug-cov"
      - "gcc8-regress-cov"
      - "gcc7-release"
