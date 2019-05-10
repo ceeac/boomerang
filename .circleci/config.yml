@@ -6,6 +6,10 @@ jobs:
     steps:
       - checkout
       - run: |
+          cat /proc/meminfo
+          echo "nproc: $(nproc)"
+      - run: |
+          mkdir -p ~/.ccache
           cd ~/project && mkdir build && cd build &&
           cmake -DCMAKE_BUILD_TYPE=Debug -DBOOMERANG_BUILD_UNIT_TESTS=ON -DBOOMERANG_BUILD_REGRESSION_TESTS=OFF -DBOOMERANG_ENABLE_COVERAGE=ON .. &&
           make -j$(nproc) && make test
@@ -21,6 +25,7 @@ jobs:
     steps:
       - checkout
       - run: |
+          mkdir -p ~/.ccache
           cd ~/project && mkdir build && cd build &&
           cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBOOMERANG_BUILD_UNIT_TESTS=OFF -DBOOMERANG_BUILD_REGRESSION_TESTS=ON -DBOOMERANG_ENABLE_COVERAGE=ON .. &&
           make -j$(nproc) && make check
@@ -36,6 +41,7 @@ jobs:
     steps:
       - checkout
       - run: |
+          mkdir -p ~/.ccache
           cd ~/project && mkdir build && cd build &&
           cmake -DCMAKE_BUILD_TYPE=Release -DBOOMERANG_BUILD_UNIT_TESTS=ON -DBOOMERANG_BUILD_REGRESSION_TESTS=OFF -DBOOMERANG_ENABLE_COVERAGE=OFF .. &&
           make -j$(nproc) && make test
@@ -46,6 +52,7 @@ jobs:
     steps:
       - checkout
       - run: |
+          mkdir -p ~/.ccache
           cd ~/project && mkdir build && cd build &&
           cmake -DCMAKE_BUILD_TYPE=Debug   -DBOOMERANG_BUILD_UNIT_TESTS=ON -DBOOMERANG_BUILD_REGRESSION_TESTS=OFF -DBOOMERANG_ENABLE_COVERAGE=OFF .. &&
           make -j$(nproc) && make test
@@ -56,6 +63,7 @@ jobs:
     steps:
       - checkout
       - run: |
+          mkdir -p ~/.ccache
           cd ~/project && mkdir build && cd build &&
           cmake -DCMAKE_BUILD_TYPE=Release -DBOOMERANG_BUILD_UNIT_TESTS=ON -DBOOMERANG_BUILD_REGRESSION_TESTS=OFF -DBOOMERANG_ENABLE_COVERAGE=OFF .. &&
           make -j$(nproc) && make test
