@@ -24,7 +24,7 @@ jobs:
         uses: actions/checkout@v2
         with:
           repository: boomerangdecompiler/boomerang.github.io
-          path: boomerang-docs
+          path: ~/boomerang-docs
       - name: Update docs
         run: |
           mkdir -p ${{ github.workspace }}/doxy/${GITHUB_REF##*/}/
