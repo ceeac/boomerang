@@ -25,7 +25,6 @@ jobs:
         with:
           repository: boomerangdecompiler/boomerang.github.io
           path: boomerang-docs
-          token: ${{ secrets.PAT_FOR_PUSH }}
       - name: Update docs
         run: |
           mkdir -p ${{ github.workspace }}/doxy/${GITHUB_REF##*/}/
