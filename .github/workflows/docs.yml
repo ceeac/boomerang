@@ -13,13 +13,11 @@ jobs:
     steps:
       - name: Checkout main repository
         uses: actions/checkout@v2
-        with:
-          path: boomerang
       - name: Get Dependencies
         shell: bash
         run: sudo apt -y update && sudo apt install -y --no-install-recommends build-essential cmake qt5-default libcapstone-dev flex bison doxygen graphviz
       - name: Configure
-        run: mkdir build && cd build && cmake ..
+        run: mkdir -p build && cd build && cmake ..
       - name: Build docs
         run: cd build && make docs
       - name: Checkout docs repository
