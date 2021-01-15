@@ -1,0 +1,39 @@
+name: docs
+on:
+  push:
+    branches:
+      - master
+      - develop
+      - upload-docs-test
+
+jobs:
+  upload-docs:
+    name: Upload documentation
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout main repository
+        uses: actions/checkout@v2
+        with:
+          path: boomerang
+      - name: Get Dependencies
+        shell: bash
+        run: sudo apt -y update && sudo apt install -y --no-install-recommends build-essential cmake qt5-default libcapstone-dev flex bison doxygen graphviz
+      - name: Configure
+        run: mkdir build && cd build && cmake ..
+      - name: Build docs
+        run: cd build && make docs
+      - name: Checkout docs repository
+        uses: actions/checkout@v2
+        with:
+          repository: boomerangdecompiler/boomerang.github.io
+          path: boomerang-docs
+          token: ${{ secrets.PAT_FOR_PUSH }}
+      - name: Update docs
+        run: |
+          mkdir -p ${{ github.workspace }}/doxy/${GITHUB_REF##*/}/
+          cd ${{ github.workspace }}/doxy/${GITHUB_REF##*/}/
+          rm -rf ./*
+          cp -r ~/boomerang/build/docs/html/* .
+          git add .
+          git commit -am "Update documentation for ${GITHUB_REF##*/} branch"
+          git push
